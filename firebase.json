@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "DOCUMENTACION/**",
+      "Unificar_Excels.bat",
+      "firebase.exe"
+    ]
+  }
+}

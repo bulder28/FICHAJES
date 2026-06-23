@@ -1,0 +1,10 @@
+# Firebase
+.firebase/
+firebase.exe
+
+# Dependencias (por si acaso se usan en el futuro)
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
