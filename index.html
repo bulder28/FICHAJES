@@ -6,7 +6,7 @@
     <title>Registro de Formación - STULZ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -17,27 +17,28 @@
                 <div class="logo">STULZ</div>
                 <h1>REGISTRO DE FORMACIÓN</h1>
             </div>
-            <!-- Se han eliminado los campos globales de Días/Horas ya que ahora es un registro por fecha -->
+            
+            <div class="header-controls">
+                <div class="db-status-badge" id="db-status" title="Estado de conexión con base de datos">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Conectando...</span>
+                </div>
+                <div class="header-clock" id="digital-clock" title="Hora actual del sistema">
+                    <span id="clock-time">--:--:--</span>
+                </div>
+            </div>
         </header>
 
         <main class="table-container">
             <div class="toolbar">
                 <button id="btn-add-row" class="btn-action btn-primary">
-                    <i class="ph ph-plus-circle"></i> Añadir Registro
+                    Añadir Registro
                 </button>
-                <div style="display: flex; gap: 1rem;">
-                    <button id="btn-export-csv" class="btn-action btn-secondary">
-                        <i class="ph ph-file-csv"></i> Guardar Excel del Día
-                    </button>
-                    <button id="btn-clear-table" class="btn-action" style="background-color: #ef4444; color: white;">
-                        <i class="ph ph-broom"></i> Nueva Jornada
-                    </button>
-                </div>
             </div>
             <table class="data-table" id="training-table">
                 <thead>
                     <tr>
-                        <th style="width: 15%">ID TRABAJADOR</th>
+                        <th style="width: 15%">TRABAJADOR</th>
                         <th style="width: 10%">TURNO</th>
                         <th style="width: 15%">OF</th>
                         <th style="width: 20%">TIPO OPERACIÓN</th>
@@ -50,16 +51,32 @@
                 <tbody id="table-body">
                     <!-- Filas generadas dinámicamente por app.js -->
                 </tbody>
-                <tfoot id="table-footer">
-                    <tr>
-                        <td colspan="6" class="tfoot-label">TOTAL HORAS DE FORMACIÓN:</td>
-                        <td id="total-horas-formacion" class="tfoot-total">0.00</td>
-                        <td></td>
-                    </tr>
-                </tfoot>
             </table>
         </main>
     </div>
+
+    <!-- Modal de Confirmación Corporativo -->
+    <div id="confirm-modal" class="modal-backdrop">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirmar Eliminación</h2>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar este registro de formación? Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-btn-cancel" class="btn-modal btn-modal-cancel">Cancelar</button>
+                <button id="modal-btn-confirm" class="btn-modal btn-modal-confirm">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor de Notificaciones (Toasts) -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Firebase SDK (Versión Compat para ejecución local sin servidor / file://) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
