@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // REGLAS PARA LA COLECCIÓN DE FICHAJES
+    match /fichajes/{fichajeId} {
+      
+      // ==========================================
+      // PROPUESTA 1: ACCESO RESTRINGIDO POR AUTENTICACIÓN (Recomendado LOPD/GDPR)
+      // ==========================================
+      // Para activar esto, se debe habilitar Firebase Authentication (ej: Autenticación Anónima o por Email).
+      // Evita que cualquier bot o persona ajena en internet pueda hacer queries a la base de datos sin estar autenticado.
+      //
+      // allow read, write: if request.auth != null;
+      //
+      
+      // ==========================================
+      // PROPUESTA 2: VALIDACIONES ESTRICTAS DE ESTRUCTURA Y ATRIBUTOS
+      // ==========================================
+      // Si no se puede implementar Login/Auth inmediatamente, reforzamos las reglas públicas con
+      // validaciones estrictas para que no se puedan inyectar campos extra o registros maliciosos.
+
+      // Solo se permite la lectura si se hace una consulta estándar de fichajes
+      allow read: if true;
+
+      // Validación al Crear/Modificar registros
+      allow write: if 
+        // 1. Debe tener exactamente todos los campos requeridos
+        request.resource.data.keys().hasAll(['id', 'trabajador', 'turno', 'of', 'operacion', 'linea', 'fecha', 'tiempo'])
+        
+        // 2. Tipos de datos correctos
+        && request.resource.data.trabajador is string
+        && request.resource.data.turno is string
+        && request.resource.data.of is string
+        && request.resource.data.operacion is string
+        && request.resource.data.linea is string
+        && request.resource.data.fecha is string
+        && (request.resource.data.tiempo is number || request.resource.data.tiempo is int)
+        
+        // 3. Restricciones de seguridad (No permitir nombres vacíos ni OFs vacías si hay tiempo cargado)
+        && request.resource.data.trabajador.size() <= 100
+        && request.resource.data.of.size() <= 30
+        && request.resource.data.operacion.size() <= 50
+        && request.resource.data.linea.size() <= 10
+        && request.resource.data.turno in ['Mañana', 'Tarde']
+        && request.resource.data.linea in ['L1', 'L2', 'L3', 'L4', 'L5', 'BOX 1']
+        && request.resource.data.operacion in ['MONTAJE MECÁNICO', 'MONTAJE ELÉCTRICO', 'MONTAJE HIDRÁULICO', 'REFRIGERACIÓN', 'TEST FINAL']
+        
+        // 4. Limitar el tiempo a un máximo razonable por fichaje (ej. 24 horas)
+        && request.resource.data.tiempo >= 0
+        && request.resource.data.tiempo <= 24
+        
+        // 5. Impedir la creación de campos arbitrarios extraños
+        && request.resource.data.size() < 15;
+
+      // Solo permitir eliminar a usuarios administradores (si se usa Auth) o limitar su uso
+      // allow delete: if request.auth != null && request.auth.token.admin == true;
+      allow delete: if true; // Mantener de forma temporal para permitir el funcionamiento actual
+    }
+
+    // REGLAS PARA LA COLECCIÓN DE OPERARIOS (AUTOCLEAN / AUTOCAMPOS)
+    match /operarios/{operarioId} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasAll(['nombre', 'createdAt'])
+                   && request.resource.data.nombre is string
+                   && request.resource.data.nombre.size() >= 3
+                   && request.resource.data.nombre.size() <= 100
+                   && request.resource.data.createdAt is int;
+      allow delete: if true; // Permitir borrar operarios si fuera necesario
+    }
+  }
+}

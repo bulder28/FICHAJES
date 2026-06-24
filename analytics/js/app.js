@@ -159,9 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Ajustar enlace de "Fichajes Planta" si se navega localmente desde la carpeta standalone
     const navInput = document.getElementById('nav-input');
     if (navInput && window.location.protocol === 'file:') {
-        if (window.location.pathname.includes('FICHAJES%20ANALYTICS') || window.location.pathname.includes('FICHAJES ANALYTICS')) {
-            navInput.href = '../FICHAJES FORMACIÓN/index.html';
-        }
+        navInput.href = '../index.html';
     }
 
     updateClock();

@@ -34,6 +34,9 @@
                 <button id="btn-add-row" class="btn-action btn-primary">
                     Añadir Registro
                 </button>
+                <button id="btn-add-worker" class="btn-action" style="background: #1e293b; color: white;">
+                    Alta Operario
+                </button>
             </div>
             <table class="data-table" id="training-table">
                 <thead>
@@ -51,6 +54,13 @@
                 <tbody id="table-body">
                     <!-- Filas generadas dinámicamente por app.js -->
                 </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="6" class="tfoot-label">TOTAL HORAS REGISTRADAS (GLOBAL DÍA):</td>
+                        <td class="tfoot-total" id="total-horas-formacion">0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
             </table>
         </main>
     </div>
@@ -70,6 +80,26 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal de Alta de Operario -->
+    <div id="worker-modal" class="modal-backdrop">
+        <div class="modal-content">
+            <div class="modal-header" style="color: var(--stulz-red);">
+                <h2 style="display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-user-plus"></i> Alta de Operario</h2>
+            </div>
+            <div class="modal-body">
+                <p>Introduce el nombre completo del operario para darlo de alta en la base de datos de la planta:</p>
+                <input type="text" id="new-worker-name" placeholder="Nombre y Apellidos..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); font-family: inherit; font-size: 0.95rem; margin-top: 1rem; text-transform: uppercase; outline: none; border-radius: 0;">
+            </div>
+            <div class="modal-footer">
+                <button id="worker-btn-cancel" class="btn-modal btn-modal-cancel">Cancelar</button>
+                <button id="worker-btn-confirm" class="btn-modal btn-modal-confirm" style="background-color: var(--stulz-red);">Registrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de autocompletado para trabajadores -->
+    <datalist id="workers-list"></datalist>
 
     <!-- Contenedor de Notificaciones (Toasts) -->
     <div id="toast-container" class="toast-container"></div>

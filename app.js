@@ -133,6 +133,24 @@ function initApp() {
     document.getElementById('modal-btn-cancel').addEventListener('click', () => closeConfirmModal(false));
     document.getElementById('modal-btn-confirm').addEventListener('click', () => closeConfirmModal(true));
 
+    // Configurar modal de alta de operarios
+    setupWorkerModal();
+
+    // Escuchar en tiempo real la lista de operarios oficiales
+    db.collection("operarios").orderBy("nombre").onSnapshot((snapshot) => {
+        const datalist = document.getElementById('workers-list');
+        if (datalist) {
+            datalist.innerHTML = '';
+            snapshot.forEach(doc => {
+                const opt = document.createElement('option');
+                opt.value = doc.data().nombre;
+                datalist.appendChild(opt);
+            });
+        }
+    }, (error) => {
+        console.error("Error cargando lista de operarios: ", error);
+    });
+
     // Escuchar cambios en la colección filtrando por la fecha del turno
     const q = db.collection("fichajes").where("fecha", "==", getShiftDate());
     
@@ -185,6 +203,73 @@ function initApp() {
     });
 
     document.getElementById('btn-add-row').addEventListener('click', addRow);
+}
+
+// Lógica para el Modal de Alta de Operario
+function setupWorkerModal() {
+    const btnAddWorker = document.getElementById('btn-add-worker');
+    const modal = document.getElementById('worker-modal');
+    const btnCancel = document.getElementById('worker-btn-cancel');
+    const btnConfirm = document.getElementById('worker-btn-confirm');
+    const nameInput = document.getElementById('new-worker-name');
+
+    if (!btnAddWorker || !modal || !btnCancel || !btnConfirm || !nameInput) return;
+
+    btnAddWorker.addEventListener('click', () => {
+        nameInput.value = '';
+        modal.classList.add('show');
+        setTimeout(() => nameInput.focus(), 150);
+    });
+
+    const closeModal = () => {
+        modal.classList.remove('show');
+    };
+
+    btnCancel.addEventListener('click', closeModal);
+
+    btnConfirm.addEventListener('click', async () => {
+        const nombre = nameInput.value.trim().toUpperCase();
+        if (nombre.length < 3) {
+            showToast("Introduce el nombre y apellido completo del operario", "warning");
+            return;
+        }
+
+        try {
+            btnConfirm.disabled = true;
+            btnConfirm.textContent = 'Registrando...';
+            
+            // Comprobar si ya existe
+            const existsQuery = await db.collection('operarios').where('nombre', '==', nombre).get();
+            if (!existsQuery.empty) {
+                showToast("Este operario ya está registrado", "warning");
+                btnConfirm.disabled = false;
+                btnConfirm.textContent = 'Registrar';
+                return;
+            }
+
+            await db.collection('operarios').add({
+                nombre: nombre,
+                createdAt: Date.now()
+            });
+
+            showToast(`Operario ${nombre} registrado con éxito`, "success");
+            closeModal();
+        } catch (e) {
+            console.error("Error al registrar operario: ", e);
+            showToast("Error al guardar en base de datos: " + e.message, "error");
+        } finally {
+            btnConfirm.disabled = false;
+            btnConfirm.textContent = 'Registrar';
+        }
+    });
+
+    // Enter en input para confirmar
+    nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            btnConfirm.click();
+        }
+    });
 }
 
 // Ejecutar initApp una vez listo el DOM
@@ -275,7 +360,7 @@ function appendRowToTable(record) {
     tr.setAttribute('data-id', record.id);
     
     tr.innerHTML = `
-        <td class="td-input"><input type="text" class="cell-input" data-field="trabajador" value="${record.trabajador || ''}" placeholder="Trabajador..."></td>
+        <td class="td-input"><input type="text" class="cell-input" data-field="trabajador" list="workers-list" value="${record.trabajador || ''}" placeholder="Trabajador..."></td>
         <td class="td-input">
             <select class="cell-input" data-field="turno" title="Turno (cambio manual permitido)">
                 ${shifts.map(s => `<option value="${s}" ${record.turno === s ? 'selected' : ''}>${s}</option>`).join('')}
