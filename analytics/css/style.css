@@ -1,18 +1,20 @@
 :root {
-    --bg-main: #f3f2f1;
-    --bg-sidebar: #252423;
+    --bg-main: #f8fafc;
+    --bg-sidebar: #1f232b;
     --card-bg: #ffffff;
-    --border-color: #edebe9;
-    --text-primary: #252423;
-    --text-secondary: #605e5c;
-    --text-muted: #a19f9d;
-    --accent: #118DFF;
-    --accent-hover: #0F75D4;
-    --accent-red: #dc2626;
+    --border-color: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --accent: #c01b22;
+    --accent-hover: #991318;
+    --accent-glow: rgba(192, 27, 34, 0.05);
     
-    --color-success: #059669;
-    --color-warning: #d97706;
-    --color-danger: #dc2626;
+    --bg-dark-slate: #262a35;
+    
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
 }
 
 * {
@@ -100,9 +102,9 @@ body {
 }
 
 .nav-item.active {
-    background-color: #1e293b;
+    background-color: rgba(192, 27, 34, 0.15);
     color: #ffffff;
-    border-left: 3px solid #ffffff;
+    border-left: 3px solid var(--accent);
     padding-left: calc(1rem - 3px);
     font-weight: 600;
 }
@@ -205,9 +207,11 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #ffffff;
-    border: 1px solid var(--border-color);
-    padding: 0.75rem 1rem;
+    background: var(--bg-dark-slate);
+    border: none;
+    border-radius: 0;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .filter-label {
@@ -215,7 +219,7 @@ body {
     align-items: center;
     gap: 0.5rem;
     font-size: 0.75rem;
-    color: var(--text-secondary);
+    color: #ffffff;
     font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: uppercase;
@@ -256,15 +260,15 @@ body {
 }
 
 .btn-filter.active {
-    background: var(--text-primary);
+    background: var(--accent);
     color: #ffffff;
     font-weight: 600;
 }
 
 .buttons-divider {
     width: 1px;
-    height: 20px;
-    background-color: var(--border-color);
+    height: 24px;
+    background-color: rgba(255, 255, 255, 0.15);
 }
 
 .btn-action {
