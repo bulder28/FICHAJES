@@ -143,7 +143,10 @@ function initApp() {
             datalist.innerHTML = '';
             snapshot.forEach(doc => {
                 const opt = document.createElement('option');
-                opt.value = doc.data().nombre;
+                const data = doc.data();
+                // Usar el ID como valor principal si existe, y el nombre como texto de ayuda
+                opt.value = data.idTrabajador ? data.idTrabajador : data.nombre;
+                opt.textContent = data.nombre;
                 datalist.appendChild(opt);
             });
         }
@@ -212,11 +215,13 @@ function setupWorkerModal() {
     const btnCancel = document.getElementById('worker-btn-cancel');
     const btnConfirm = document.getElementById('worker-btn-confirm');
     const nameInput = document.getElementById('new-worker-name');
+    const idInput = document.getElementById('new-worker-id');
 
-    if (!btnAddWorker || !modal || !btnCancel || !btnConfirm || !nameInput) return;
+    if (!btnAddWorker || !modal || !btnCancel || !btnConfirm || !nameInput || !idInput) return;
 
     btnAddWorker.addEventListener('click', () => {
         nameInput.value = '';
+        idInput.value = '';
         modal.classList.add('show');
         setTimeout(() => nameInput.focus(), 150);
     });
@@ -229,8 +234,15 @@ function setupWorkerModal() {
 
     btnConfirm.addEventListener('click', async () => {
         const nombre = nameInput.value.trim().toUpperCase();
+        const idTrabajador = idInput.value.trim().toUpperCase();
+        
         if (nombre.length < 3) {
             showToast("Introduce el nombre y apellido completo del operario", "warning");
+            return;
+        }
+
+        if (idTrabajador.length === 0) {
+            showToast("Introduce el ID del trabajador", "warning");
             return;
         }
 
@@ -238,10 +250,19 @@ function setupWorkerModal() {
             btnConfirm.disabled = true;
             btnConfirm.textContent = 'Registrando...';
             
-            // Comprobar si ya existe
-            const existsQuery = await db.collection('operarios').where('nombre', '==', nombre).get();
-            if (!existsQuery.empty) {
-                showToast("Este operario ya está registrado", "warning");
+            // Comprobar si ya existe el nombre
+            const existsNameQuery = await db.collection('operarios').where('nombre', '==', nombre).get();
+            if (!existsNameQuery.empty) {
+                showToast("Ya existe un operario con ese nombre", "warning");
+                btnConfirm.disabled = false;
+                btnConfirm.textContent = 'Registrar';
+                return;
+            }
+
+            // Comprobar si ya existe el ID
+            const existsIdQuery = await db.collection('operarios').where('idTrabajador', '==', idTrabajador).get();
+            if (!existsIdQuery.empty) {
+                showToast("Ya existe un operario con ese ID", "warning");
                 btnConfirm.disabled = false;
                 btnConfirm.textContent = 'Registrar';
                 return;
@@ -249,6 +270,7 @@ function setupWorkerModal() {
 
             await db.collection('operarios').add({
                 nombre: nombre,
+                idTrabajador: idTrabajador,
                 createdAt: Date.now()
             });
 
@@ -360,7 +382,7 @@ function appendRowToTable(record) {
     tr.setAttribute('data-id', record.id);
     
     tr.innerHTML = `
-        <td class="td-input"><input type="text" class="cell-input" data-field="trabajador" list="workers-list" value="${record.trabajador || ''}" placeholder="Trabajador..."></td>
+        <td class="td-input"><input type="text" class="cell-input" data-field="trabajador" list="workers-list" value="${record.trabajador || ''}" placeholder="ID Trabajador..."></td>
         <td class="td-input">
             <select class="cell-input" data-field="turno" title="Turno (cambio manual permitido)">
                 ${shifts.map(s => `<option value="${s}" ${record.turno === s ? 'selected' : ''}>${s}</option>`).join('')}

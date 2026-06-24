@@ -10,13 +10,13 @@
     --stulz-red-dark: #991318;
     --stulz-glow: rgba(192, 27, 34, 0.05);
     
-    --bg-dark-slate: #262a35; /* Toolbar and filters */
+    --bg-dark-slate: #262a35; /* Softer corporate dark grey */
     
     --color-success: #10b981; /* Verde */
     --color-warning: #f59e0b; /* Amarillo/Naranja */
     --color-danger: #ef4444; /* Rojo */
     
-    --table-header-bg: #262a35; /* Dark table header */
+    --table-header-bg: #262a35; /* Softer corporate dark grey */
     --table-header-text: #ffffff;
     --row-alt-bg: #f8fafc;
     --row-hover-bg: #f1f5f9;

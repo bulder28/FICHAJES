@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Formación - STULZ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="app-wrapper">
         <header class="app-header">
@@ -17,7 +21,7 @@
                 <div class="logo">STULZ</div>
                 <h1>REGISTRO DE FORMACIÓN</h1>
             </div>
-            
+
             <div class="header-controls">
                 <div class="db-status-badge" id="db-status" title="Estado de conexión con base de datos">
                     <span class="status-dot"></span>
@@ -41,9 +45,9 @@
             <table class="data-table" id="training-table">
                 <thead>
                     <tr>
-                        <th style="width: 15%">TRABAJADOR</th>
+                        <th style="width: 15%">ID TRABAJADOR</th>
                         <th style="width: 10%">TURNO</th>
-                        <th style="width: 15%">OF</th>
+                        <th style="width: 7%">OF</th>
                         <th style="width: 20%">TIPO OPERACIÓN</th>
                         <th style="width: 10%">LÍNEA</th>
                         <th style="width: 15%">FECHA FORMACIÓN</th>
@@ -72,7 +76,8 @@
                 <h2>Confirmar Eliminación</h2>
             </div>
             <div class="modal-body">
-                <p>¿Estás seguro de que deseas eliminar este registro de formación? Esta acción no se puede deshacer.</p>
+                <p>¿Estás seguro de que deseas eliminar este registro de formación? Esta acción no se puede deshacer.
+                </p>
             </div>
             <div class="modal-footer">
                 <button id="modal-btn-cancel" class="btn-modal btn-modal-cancel">Cancelar</button>
@@ -85,15 +90,20 @@
     <div id="worker-modal" class="modal-backdrop">
         <div class="modal-content">
             <div class="modal-header" style="color: var(--stulz-red);">
-                <h2 style="display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-user-plus"></i> Alta de Operario</h2>
+                <h2 style="display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-user-plus"></i> Alta de
+                    Operario</h2>
             </div>
             <div class="modal-body">
-                <p>Introduce el nombre completo del operario para darlo de alta en la base de datos de la planta:</p>
-                <input type="text" id="new-worker-name" placeholder="Nombre y Apellidos..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); font-family: inherit; font-size: 0.95rem; margin-top: 1rem; text-transform: uppercase; outline: none; border-radius: 0;">
+                <p>Introduce el nombre completo y el ID del operario para darlo de alta en la base de datos de la planta:</p>
+                <input type="text" id="new-worker-name" placeholder="Nombre y Apellidos..."
+                    style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); font-family: inherit; font-size: 0.95rem; margin-top: 1rem; text-transform: uppercase; outline: none; border-radius: 0; box-sizing: border-box;">
+                <input type="text" id="new-worker-id" placeholder="ID Trabajador..."
+                    style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); font-family: inherit; font-size: 0.95rem; margin-top: 1rem; text-transform: uppercase; outline: none; border-radius: 0; box-sizing: border-box;">
             </div>
             <div class="modal-footer">
                 <button id="worker-btn-cancel" class="btn-modal btn-modal-cancel">Cancelar</button>
-                <button id="worker-btn-confirm" class="btn-modal btn-modal-confirm" style="background-color: var(--stulz-red);">Registrar</button>
+                <button id="worker-btn-confirm" class="btn-modal btn-modal-confirm"
+                    style="background-color: var(--stulz-red);">Registrar</button>
             </div>
         </div>
     </div>
@@ -109,4 +119,5 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>
