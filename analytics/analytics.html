@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STULZ - Analytics & Business Intelligence</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar inyectado dinámicamente -->
+        <aside id="sidebar-container"></aside>
+
+        <!-- Espacio de Trabajo Principal -->
+        <div class="workspace">
+            <header class="workspace-header">
+                <div class="workspace-title">
+                    <h2 style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="ph ph-chart-bar"></i> BUSINESS INTELLIGENCE
+                    </h2>
+                    <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">
+                        Control de Costes (OF) e Inversión Formativa
+                    </div>
+                </div>
+            </header>
+
+            <main class="analytics-container">
+                <!-- PANEL IZQUIERDO: Coste por OF -->
+                <div class="analytics-panel of-panel">
+                    <div class="panel-header">
+                        <h3><i class="ph ph-factory"></i> Coste Real por Proyecto (OF)</h3>
+                        <p>Total de horas invertidas en la Orden de Fabricación.</p>
+                    </div>
+                    
+                    <div class="of-search-box">
+                        <i class="ph ph-magnifying-glass"></i>
+                        <input type="text" id="of-search-input" placeholder="Introduce el número de OF (Ej: M2401)" autocomplete="off">
+                        <button id="btn-search-of" class="btn-primary">Buscar Costes</button>
+                    </div>
+
+                    <div id="of-results-container" style="display: none; margin-top: 2rem;">
+                        <div class="kpi-dashboard" style="margin-bottom: 2rem;">
+                            <div class="kpi-card" style="border-top-color: var(--stulz-red);">
+                                <div class="kpi-content">
+                                    <span class="kpi-label">OF ENCONTRADA</span>
+                                    <h3 class="kpi-value" id="res-of-name" style="color: var(--stulz-red);">--</h3>
+                                </div>
+                            </div>
+                            <div class="kpi-card" style="border-top-color: #f59e0b;">
+                                <div class="kpi-content">
+                                    <span class="kpi-label">TOTAL HORAS IMPUTADAS</span>
+                                    <h3 class="kpi-value" id="res-of-hours">0.0h</h3>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Desglose por Área:</h4>
+                        <div style="height: 300px; width: 100%;">
+                            <canvas id="ofBarChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div id="of-empty-state" style="text-align: center; padding: 4rem 2rem; color: #94a3b8;">
+                        <i class="ph ph-files" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                        <p>Busca una Orden de Fabricación para ver sus costes asociados.</p>
+                    </div>
+                </div>
+
+                <!-- PANEL DERECHO: Formación Global -->
+                <div class="analytics-panel training-panel">
+                    <div class="panel-header">
+                        <h3><i class="ph ph-graduation-cap"></i> Inversión Formativa Global</h3>
+                        <p>Distribución total de horas dedicadas a formación por operación.</p>
+                    </div>
+                    
+                    <div class="kpi-card" style="border-top-color: #3b82f6; margin-bottom: 2rem;">
+                        <div class="kpi-content">
+                            <span class="kpi-label">TOTAL HORAS FORMACIÓN (PLANTA)</span>
+                            <h3 class="kpi-value" id="res-global-hours" style="color: #3b82f6;">0.0h</h3>
+                        </div>
+                    </div>
+
+                    <div style="height: 350px; width: 100%; display: flex; justify-content: center;">
+                        <canvas id="trainingPieChart"></canvas>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    
+    <script src="../components/sidebar.js"></script>
+    <script src="../shared.js"></script>
+    <!-- Lógica de Analytics -->
+    <script src="js/app.js"></script>
+</body>
+</html>

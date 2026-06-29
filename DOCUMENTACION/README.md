@@ -1,68 +1,98 @@
-# Documentación: Fichajes Formación
+# 📖 Documentación Oficial: Portal de Gestión de Personal (STULZ)
 
-Bienvenido a la documentación del proyecto **Fichajes Formación**, un panel interactivo diseñado para registrar las formaciones de los trabajadores de la planta (STULZ).
-
-## 🚀 Tecnologías Utilizadas
-
-*   **HTML5 & CSS3**: Para la estructura semántica y un diseño moderno (vía `style.css`).
-*   **Vanilla JavaScript (Módulos)**: Lógica de la aplicación (`app.js`) utilizando las versiones modulares de JS.
-*   **Firebase Cloud Firestore**: Base de datos NoSQL en tiempo real para el almacenamiento de registros.
+**Última actualización:** Junio 2026 — Post-Auditoría Pre-Producción  
+**Responsable (Docs-as-Code):** Agente Bibliotecario
 
 ---
 
-## 📂 Estructura del Proyecto
+## 🏗️ Arquitectura del Sistema (SPA)
 
-```text
-FICHAJES FORMACIÓN/
-│
-├── index.html        # Archivo principal de la interfaz
-├── style.css         # Hoja de estilos (diseño)
-├── app.js            # Lógica principal y conexión con Firebase
+La aplicación es una **Single Page Application (SPA)** que se carga desde un único archivo `index.html`. Esto garantiza el funcionamiento correcto en entornos de planta sin servidor local (protocolo `file://`).
+
+### Estructura de Archivos
+```
+FICHAJES/
+├── index.html      → Único punto de entrada (UI + SPA logic)
+├── app.js          → Lógica de negocio, Firebase y Poka-Yokes
+├── style.css       → Sistema de diseño completo (variables CSS + componentes)
+├── shared.js       → Funciones compartidas (reloj, estado DB)
+├── components/
+│   └── sidebar.js  → Inyección dinámica del menú lateral
 └── DOCUMENTACION/
-    └── README.md     # Este archivo
+    └── README.md   → Este archivo
 ```
 
 ---
 
-## 🔥 Configuración de Firebase
+## 🔐 Seguridad y Acceso (Post-Auditoría QA)
 
-Este proyecto se conecta a **Firebase Cloud Firestore** para sincronizar todos los datos introducidos desde cualquier ordenador en tiempo real. 
+### Autenticación por PIN (Modo Admin / RRHH)
+- El PIN **no se almacena en texto plano** en el código fuente.
+- Se valida contra un **hash SHA-256** usando la Web Crypto API del navegador.
+- Si alguien hace `Ctrl+U`, solo verá el hash, nunca el PIN real.
 
-### Reglas de Seguridad en Firestore
-Para asegurar el correcto funcionamiento sin necesidad de Login, la base de datos utiliza unas reglas que validan la estructura de cada documento para evitar "basura":
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /fichajes/{fichajeId} {
-      allow read: if true;
-      allow write: if request.resource.data.keys().hasAll(['id', 'trabajador', 'turno', 'of', 'operacion', 'linea', 'fecha', 'tiempo'])
-                   && request.resource.data.trabajador is string
-                   && request.resource.data.operacion is string
-                   && request.resource.data.tiempo is number
-                   && request.resource.data.size() < 15;
-      allow delete: if true;
-    }
-  }
-}
-```
+### Modos de Acceso
+| Modo | Cómo entrar | Funciones disponibles |
+|---|---|---|
+| **Producción (Kiosko)** | Botón rojo en Launcher | Solo Registro de Formación |
+| **Administración (RRHH)** | PIN corporativo | Alta Operarios + Gestión Festivos + CRUD completo |
 
 ---
 
-## ⚙️ Funcionamiento de la Aplicación
+## 🗄️ Modelo de Datos (Firebase Firestore)
 
-1.  **Carga Inicial y Tiempo Real**: Al abrir la web, `onSnapshot` consulta todos los documentos de la colección `fichajes` ordenados por fecha de creación. Cualquier cambio realizado se refleja visualmente sin tener que recargar la página y sin interrumpir a los usuarios que estén escribiendo.
-2.  **Operaciones CRUD**:
-    *   **Crear**: El botón "Añadir Registro" crea un nuevo documento por defecto en Firestore con los campos básicos.
-    *   **Modificar**: Cada vez que el usuario modifica un input y pierde el foco (`change`), la aplicación envía un evento `updateDoc` a Firestore.
-    *   **Eliminar**: El botón de papelera ejecuta un `deleteDoc`.
-3.  **Exportación CSV**: Permite descargar los registros actuales en la pantalla a un archivo Excel compatible con la separación regional de España (punto y coma y comas decimales), utilizando el API nativo `showSaveFilePicker` si el navegador lo soporta.
-4.  **Nueva Jornada**: El botón rojo de limpieza borra permanentemente todos los documentos de la base de datos de Firebase para empezar un día en blanco.
+### A. Colección `operarios`
+| Campo | Tipo | Poka-Yoke |
+|---|---|---|
+| `nombre` | string | ≥3 caracteres, MAYÚSCULAS, único |
+| `idTrabajador` | string | Regex `/^\d{5}$/` obligatorio |
+| `turnoBase` | string | Lista cerrada: Mañana / Tarde |
+| `seccionBase` | string | Lista cerrada: BATERÍAS / ALMACÉN / CHAPA / MONTAJE / TEST FINAL |
+| `lineaReferente` | string | Solo si sección = MONTAJE |
+| `calendarioBase` | string | Hardcodeado: "Lunes a Viernes" |
+
+**Detección automática ETT por prefijo del ID:**
+- `00XXX` → Plantilla STULZ
+- `04XXX` → ETT Aura
+- `06XXX` → ETT Eurofirms
+
+### B. Colección `festivos`
+- Días festivos nacionales, regionales, puentes y vacaciones de fábrica.
+- Base del futuro módulo de Control de Absentismo.
+- Calendario 2026 pre-cargado automáticamente en el primer arranque.
+
+### C. Colección `fichajes`
+- Registros de formación diarios filtrados por fecha del turno.
+- Campo `fecha` calculado con 2h de retraso (protección cruce turno noche→mañana).
+- Tiempo máximo por turno configurado vía `config/global` en Firestore (default: 10h).
 
 ---
 
-## 📝 Notas de Desarrollo
+## 🛡️ Poka-Yokes Implementados (Control de Calidad)
 
-*   **Evitar pérdida de foco**: La aplicación está diseñada inteligentemente para actualizar el HTML de los registros que editan otras personas en otros ordenadores sin quitar el foco (`document.activeElement`) a la celda en la que tú estás escribiendo actualmente.
-*   **Archivos Modulares**: `app.js` debe cargarse en el HTML siempre con `type="module"` para soportar las importaciones directas de la red (`https://www.gstatic.com/firebasejs/...`).
+1. **ID de 5 dígitos obligatorio** con regex `/^\d{5}$/` — bloquea `00ABC`, `1234`, etc.
+2. **Prefijo de ID válido** — solo `00`, `04`, o `06` al inicio.
+3. **Unicidad de ID y Nombre** — consulta Firebase antes de registrar.
+4. **Tiempo máximo por turno** — bloqueado a `maxHorasFichaje` de la config global.
+5. **OF normalizada** — se convierte a MAYÚSCULAS y se eliminan espacios automáticamente.
+6. **Trabajador validado en BD** — el ID tecleado en el fichaje debe existir en `operarios`.
+7. **Doble confirmación para "Nueva Jornada"** — el usuario debe escribir la palabra `CONFIRMAR`.
+8. **Indicador visual de guardado** — la fila parpadea en verde 1.5s al guardar en Firebase.
+
+---
+
+## 🎨 Sistema de Diseño
+
+- **Paleta:** Rojo Corporativo STULZ `#c01b22` + Slate oscuro industrial
+- **Tipografía:** Inter (Google Fonts) — legible en condiciones de baja luz
+- **Modo Kiosko:** botones táctiles ≥ `110px` de alto, celdas ≥ `52px`, sin sidebar
+- **Badge de Turno:** indicador visual ☀️/🌙 en cabecera del modo Producción
+- **Micro-animaciones:** `row-saved` (verde), hover transitions `0.2s`, toast slide-in
+
+---
+
+## 🔮 Próximos Módulos Planificados
+
+1. **Planificador de Ausencias** — control de absentismo con integración con `festivos`
+2. **Matriz de Polivalencia** — skills por operario y sección
+3. **Dashboard de KPIs** — OEE y formación por línea y turno

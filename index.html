@@ -15,31 +15,80 @@
 </head>
 
 <body>
-    <div class="app-wrapper">
-        <header class="app-header">
-            <div class="header-brand">
-                <div class="logo">STULZ</div>
-                <h1>REGISTRO DE FORMACIÓN</h1>
-            </div>
+    <!-- SPA LAUNCHER VIEW -->
+    <div id="view-launcher">
+        <div class="launcher-container">
+            <div class="launcher-logo">STULZ</div>
+            <div class="launcher-subtitle">Portal de Gestión de Personal</div>
 
-            <div class="header-controls">
-                <div class="db-status-badge" id="db-status" title="Estado de conexión con base de datos">
-                    <span class="status-dot"></span>
-                    <span class="status-text">Conectando...</span>
+            <button onclick="enterProductionMode()" class="btn-launcher btn-production">
+                <i class="ph ph-factory"></i> Acceso a Producción (Planta)
+            </button>
+
+            <button onclick="openPinModal()" class="btn-launcher btn-hr">
+                <i class="ph ph-shield-lock"></i> Administración (RRHH)
+            </button>
+        </div>
+    </div>
+
+    <!-- SPA DASHBOARD VIEW -->
+    <div id="view-app" style="display: none;">
+        <div class="app-layout">
+        <!-- Sidebar inyectado dinámicamente -->
+        <aside id="sidebar-container"></aside>
+
+        <!-- Área Principal de Trabajo -->
+        <div class="workspace">
+            <header class="workspace-header">
+                <div class="workspace-title">
+                    <h2 style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-terminal-window"></i> REGISTRO DE FORMACIÓN</h2>
+                    <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">Operación y Control de Planta</div>
                 </div>
-                <div class="header-clock" id="digital-clock" title="Hora actual del sistema">
-                    <span id="clock-time">--:--:--</span>
+                <!-- Badge de turno activo (visible en modo Kiosko) -->
+                <div id="shift-badge" class="shift-badge" style="display:none;"></div>
+            </header>
+
+        <!-- Contenedor de Indicadores Clave (KPI Cards) -->
+        <div class="kpi-dashboard">
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-red">
+                    <i class="ph ph-clock"></i>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">TOTAL HORAS HOY</span>
+                    <h3 class="kpi-value" id="kpi-total-horas">0.0</h3>
                 </div>
             </div>
-        </header>
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-blue">
+                    <i class="ph ph-list-checks"></i>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">REGISTROS COMPLETADOS</span>
+                    <h3 class="kpi-value" id="kpi-total-registros">0</h3>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-green">
+                    <i class="ph ph-users"></i>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">OPERARIOS ACTIVOS</span>
+                    <h3 class="kpi-value" id="kpi-total-operarios">0</h3>
+                </div>
+            </div>
+        </div>
 
         <main class="table-container">
             <div class="toolbar">
                 <button id="btn-add-row" class="btn-action btn-primary">
                     Añadir Registro
                 </button>
-                <button id="btn-add-worker" class="btn-action btn-secondary">
+                <button id="btn-add-worker" class="btn-action btn-secondary admin-only" style="display: none;">
                     Alta Operario
+                </button>
+                <button id="btn-manage-holidays" class="btn-action btn-secondary admin-only" style="display: none; background: #475569; color: white;">
+                    <i class="ph ph-calendar-star"></i> Festivos
                 </button>
             </div>
             <table class="data-table" id="training-table">
@@ -67,6 +116,61 @@
                 </tfoot>
             </table>
         </main>
+    </div> <!-- /workspace -->
+    </div> <!-- /app-layout -->
+    </div> <!-- /view-app -->
+
+    <!-- Modal de PIN (Launcher) -->
+    <div id="pin-modal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 350px;">
+            <h2 style="margin-top:0; color:var(--stulz-red); display:flex; align-items:center; gap:0.5rem;"><i class="ph ph-lock-key"></i> Autenticación</h2>
+            <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1.5rem;">Introduce el PIN de seguridad corporativo para acceder al área de RRHH.</p>
+            
+            <input type="password" id="pin-input" placeholder="****" class="pin-input" maxlength="10">
+            
+            <div id="pin-error" class="error-msg">PIN Incorrecto</div>
+            
+            <div style="display:flex; justify-content:flex-end; gap:1rem;">
+                <button onclick="closePinModal()" class="btn-modal btn-modal-cancel">Cancelar</button>
+                <button onclick="verifyPin()" class="btn-modal btn-modal-confirm">Entrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Festivos (Calendario Laboral) -->
+    <div id="holiday-modal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header" style="color: var(--stulz-red);">
+                <h2 style="display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-calendar-star"></i> Calendario de Festivos</h2>
+            </div>
+            <div class="modal-body">
+                <p>Añade los días festivos nacionales, locales o días de cierre de fábrica. El sistema de absentismo no penalizará a los operarios en estos días.</p>
+                
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <input type="date" id="new-holiday-date" class="modal-input" style="margin-top: 0; flex: 1;">
+                    <input type="text" id="new-holiday-name" placeholder="Ej: Navidad..." class="modal-input" style="margin-top: 0; flex: 2;">
+                    <button id="btn-save-holiday" class="btn-action btn-primary" style="height: 42px;"><i class="ph ph-plus"></i></button>
+                </div>
+                
+                <div style="margin-top: 1.5rem; border: 1px solid var(--border-color); max-height: 200px; overflow-y: auto;">
+                    <table class="data-table" style="width: 100%;">
+                        <thead style="position: sticky; top: 0; background: var(--table-header-bg);">
+                            <tr>
+                                <th style="padding: 0.5rem; font-size: 0.7rem;">FECHA</th>
+                                <th style="padding: 0.5rem; font-size: 0.7rem;">MOTIVO</th>
+                                <th style="padding: 0.5rem; font-size: 0.7rem; text-align: center;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="holidays-table-body">
+                            <!-- Filas dinámicas -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="holiday-btn-close" class="btn-modal btn-modal-cancel">Cerrar</button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal de Confirmación Corporativo -->
@@ -94,11 +198,38 @@
                     Operario</h2>
             </div>
             <div class="modal-body">
-                <p>Introduce el nombre completo y el ID del operario para darlo de alta en la base de datos de la planta:</p>
-                <input type="text" id="new-worker-name" placeholder="Nombre y Apellidos..."
-                    style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); font-family: inherit; font-size: 0.95rem; margin-top: 1rem; text-transform: uppercase; outline: none; border-radius: 0; box-sizing: border-box;">
-                <input type="text" id="new-worker-id" placeholder="ID Trabajador..."
-                    style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); font-family: inherit; font-size: 0.95rem; margin-top: 1rem; text-transform: uppercase; outline: none; border-radius: 0; box-sizing: border-box;">
+                <p>Introduce los datos base del operario para darlo de alta en la base de datos de la planta:</p>
+                
+                <input type="text" id="new-worker-name" placeholder="Nombre y Apellidos..." class="modal-input">
+                <input type="text" id="new-worker-id" placeholder="ID Trabajador..." class="modal-input">
+                
+                <select id="new-worker-turno" class="modal-input">
+                    <option value="">Selecciona Turno Base...</option>
+                    <option value="Mañana">Mañana</option>
+                    <option value="Tarde">Tarde</option>
+                </select>
+
+                <select id="new-worker-seccion" class="modal-input">
+                    <option value="">Selecciona Sección Base...</option>
+                    <option value="BATERÍAS">BATERÍAS</option>
+                    <option value="ALMACÉN">ALMACÉN</option>
+                    <option value="CHAPA">CHAPA</option>
+                    <option value="MONTAJE">MONTAJE</option>
+                    <option value="TEST FINAL">TEST FINAL</option>
+                </select>
+
+                <div id="linea-select-container" style="display: none; margin-top: 0.75rem; margin-bottom: 0.75rem; border: 1px solid var(--stulz-red); padding: 0.75rem; background-color: rgba(230, 0, 0, 0.05); border-radius: 4px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--stulz-red); margin-bottom: 0.5rem; display: block;">Operario de Montaje - Asignar Línea:</label>
+                    <select id="new-worker-linea" class="modal-input" style="margin-top: 0;">
+                        <option value="PENDIENTE DE VALIDACIÓN" selected>PENDIENTE DE VALIDACIÓN</option>
+                        <option value="L1">L1</option>
+                        <option value="L2">L2</option>
+                        <option value="L3">L3</option>
+                        <option value="L4">L4</option>
+                        <option value="L5">L5</option>
+                        <option value="BOX 1">BOX 1</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button id="worker-btn-cancel" class="btn-modal btn-modal-cancel">Cancelar</button>
@@ -117,7 +248,163 @@
     <!-- Firebase SDK (Versión Compat para ejecución local sin servidor / file://) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="components/sidebar.js"></script>
+    <script src="shared.js"></script>
     <script src="app.js"></script>
+
+    <!-- Modal de confirmación especial: Nueva Jornada -->
+    <div id="new-day-modal" class="modal-backdrop">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header" style="color: var(--stulz-red);">
+                <h2 style="display:flex;align-items:center;gap:.5rem;"><i class="ph ph-warning"></i> Acción Irreversible</h2>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:1rem;">Esto <strong>borrará permanentemente todos los registros de formación del día</strong> en la base de datos. Esta acción <strong>no tiene vuelta atrás</strong>.</p>
+                <p style="font-size:0.9rem; color:var(--text-secondary);">Para confirmar, escribe <strong>CONFIRMAR</strong> en el campo de abajo:</p>
+                <input type="text" id="new-day-confirm-input" class="modal-input" placeholder="Escribe CONFIRMAR..." autocomplete="off" style="margin-top:0.75rem; border-color: var(--stulz-red);">
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeNewDayModal()" class="btn-modal btn-modal-cancel">Cancelar</button>
+                <button id="new-day-btn-confirm" class="btn-modal btn-modal-confirm" style="background:var(--stulz-red);" disabled onclick="executeNewDay()">Sí, borrar todo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lógica de SPA (Single Page Application) -->
+    <script>
+        // [SEGURIDAD] El PIN se valida contra un hash SHA-256 para no exponer el PIN en texto plano.
+        // Hash SHA-256 de "9244"
+        const PIN_HASH = '82f1fc68c02f9f616f47296d1d2c9242e387944e47d0647e35eb26fe0b1ee31a';
+
+        async function hashPin(pin) {
+            const msgBuffer = new TextEncoder().encode(pin);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        const pinModal = document.getElementById('pin-modal');
+        const pinInput = document.getElementById('pin-input');
+        const pinErrorMsg = document.getElementById('pin-error');
+        const viewLauncher = document.getElementById('view-launcher');
+        const viewApp = document.getElementById('view-app');
+
+        // Actualizar badge del turno y fecha en el Launcher
+        function updateLauncherInfo() {
+            const now = new Date();
+            const hour = now.getHours();
+            const shift = (hour >= 6 && hour < 14) ? 'TURNO MAÑANA' : 'TURNO TARDE';
+            const dateStr = now.toLocaleDateString('es-ES', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+            const shiftLabel = document.getElementById('launcher-shift-label');
+            const dateLabel = document.getElementById('launcher-date');
+            if (shiftLabel) shiftLabel.textContent = shift;
+            if (dateLabel) dateLabel.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+        }
+        updateLauncherInfo();
+        setInterval(updateLauncherInfo, 60000);
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('view') === 'produccion' || urlParams.get('mode') === 'kiosk') {
+                enterProductionMode();
+            }
+
+            // Doble confirmación de Nueva Jornada
+            const confirmInput = document.getElementById('new-day-confirm-input');
+            const confirmBtn = document.getElementById('new-day-btn-confirm');
+            if (confirmInput && confirmBtn) {
+                confirmInput.addEventListener('input', () => {
+                    confirmBtn.disabled = confirmInput.value.trim() !== 'CONFIRMAR';
+                });
+            }
+        });
+
+        function enterProductionMode() {
+            viewLauncher.style.opacity = '0';
+            setTimeout(() => {
+                viewLauncher.style.display = 'none';
+                viewApp.style.display = 'flex';
+                document.body.classList.add('no-sidebar');
+                // Mostrar badge de turno en modo kiosko
+                const badge = document.getElementById('shift-badge');
+                if (badge) {
+                    const hour = new Date().getHours();
+                    const isMorning = hour >= 6 && hour < 14;
+                    badge.textContent = isMorning ? 'TURNO MAÑANA' : 'TURNO TARDE';
+                    badge.className = 'shift-badge ' + (isMorning ? 'shift-morning' : 'shift-afternoon');
+                    badge.style.display = 'flex';
+                }
+            }, 300);
+        }
+
+        function openPinModal() {
+            pinModal.classList.add('show');
+            pinInput.value = '';
+            pinErrorMsg.classList.remove('show');
+            setTimeout(() => pinInput.focus(), 200);
+        }
+
+        function closePinModal() {
+            pinModal.classList.remove('show');
+        }
+
+        async function verifyPin() {
+            const inputHash = await hashPin(pinInput.value);
+            if (inputHash === PIN_HASH) {
+                closePinModal();
+                viewLauncher.style.opacity = '0';
+                setTimeout(() => {
+                    viewLauncher.style.display = 'none';
+                    viewApp.style.display = 'flex';
+                    const url = new URL(window.location);
+                    url.searchParams.set('admin', '1');
+                    window.history.pushState({}, '', url);
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        el.style.display = '';
+                    });
+                }, 300);
+            } else {
+                pinErrorMsg.classList.add('show');
+                pinInput.value = '';
+                pinInput.focus();
+            }
+        }
+
+        // Nueva Jornada con doble confirmación
+        function openNewDayModal() {
+            const modal = document.getElementById('new-day-modal');
+            const input = document.getElementById('new-day-confirm-input');
+            const btn = document.getElementById('new-day-btn-confirm');
+            if (modal) { modal.classList.add('show'); }
+            if (input) { input.value = ''; }
+            if (btn) { btn.disabled = true; }
+        }
+
+        function closeNewDayModal() {
+            const modal = document.getElementById('new-day-modal');
+            if (modal) modal.classList.remove('show');
+        }
+
+        async function executeNewDay() {
+            closeNewDayModal();
+            try {
+                const snapshot = await db.collection('fichajes').get();
+                const batch = db.batch();
+                snapshot.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+                if (typeof showToast === 'function') showToast('Nueva jornada iniciada. Todos los registros han sido borrados.', 'info');
+            } catch(e) {
+                if (typeof showToast === 'function') showToast('Error al borrar registros: ' + e.message, 'error');
+            }
+        }
+
+        if (pinInput) {
+            pinInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') verifyPin();
+                if (e.key === 'Escape') closePinModal();
+            });
+        }
+    </script>
 </body>
 
 </html>

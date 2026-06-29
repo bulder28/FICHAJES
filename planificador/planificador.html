@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STULZ - Planificador de Formación</title>
+    <!-- Mismos iconos y fuentes que la app principal -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Sidebar inyectado dinámicamente -->
+        <aside id="sidebar-container"></aside>
+
+        <!-- Área Principal de Trabajo -->
+        <div class="workspace">
+            <header class="workspace-header">
+                <div class="workspace-title">
+                    <h2 style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="ph ph-calendar-check"></i> PLANIFICADOR DE FORMACIÓN
+                    </h2>
+                    <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">Previsión de Capacidades Operativas (Workforce Planning)</div>
+                </div>
+                <div class="header-actions">
+                    <button id="btn-new-goal" class="btn-action" style="background-color: var(--stulz-red); color: white; border: none; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-radius: 2px;">
+                        <i class="ph ph-plus"></i> NUEVO OBJETIVO
+                    </button>
+                </div>
+            </header>
+
+            <main class="planner-container" style="flex: 1; display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- Panel de Formulario Oculto (Se muestra al hacer clic en Nuevo Objetivo) -->
+                <div id="goal-form-panel" style="display: none; background: white; padding: 1.5rem; border-radius: 4px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                    <h3 style="margin-bottom: 1rem; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-target"></i> Definir Nuevo Objetivo de Formación</h3>
+                    <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">OPERACIÓN</label>
+                            <select id="goal-operation" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 2px;">
+                                <option value="MONTAJE MECÁNICO">Montaje Mecánico</option>
+                                <option value="MONTAJE ELÉCTRICO">Montaje Eléctrico</option>
+                                <option value="MONTAJE HIDRÁULICO">Montaje Hidráulico</option>
+                                <option value="REFRIGERACIÓN">Refrigeración</option>
+                                <option value="TEST FINAL">Test Final</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">OBJETIVO (OPERARIOS AUTÓNOMOS)</label>
+                            <input type="number" id="goal-target" min="1" max="50" value="4" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 2px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">FECHA LÍMITE (DEADLINE)</label>
+                            <input type="date" id="goal-deadline" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 2px;">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                        <button id="btn-cancel-goal" style="padding: 0.5rem 1rem; background: transparent; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600;">Cancelar</button>
+                        <button id="btn-save-goal" style="padding: 0.5rem 1rem; background: var(--stulz-red); color: white; border: none; cursor: pointer; font-weight: 600;">Guardar Objetivo</button>
+                    </div>
+                </div>
+
+                <!-- Cuadro de Mando de Metas Activas -->
+                <div class="goals-dashboard" id="goals-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem;">
+                    <!-- Las metas se inyectarán aquí -->
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Contenedor de Notificaciones -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    
+    <script src="../components/sidebar.js"></script>
+    <script src="../shared.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

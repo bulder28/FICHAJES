@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STULZ - Control de Presencia (Zucchetti)</title>
+    <!-- Mismos iconos y fuentes que la app principal -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Sidebar inyectado dinámicamente -->
+        <aside id="sidebar-container"></aside>
+
+        <!-- Área Principal de Trabajo -->
+        <div class="workspace">
+            <!-- Banner de Alerta Zucchetti -->
+            <div style="background-color: #fef08a; color: #854d0e; padding: 0.75rem 1.5rem; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid #fde047;">
+                <i class="ph ph-warning-circle" style="font-size: 1.2rem;"></i>
+                MODO SIMULACIÓN ACTIVADO: Los datos de presencia mostrados son generados aleatoriamente. Pendiente de integración técnica con API REST de Zucchetti HR.
+            </div>
+
+            <header class="workspace-header">
+                <div class="workspace-title">
+                    <h2 style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="ph ph-identification-card"></i> CONTROL DE PRESENCIA
+                    </h2>
+                    <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">Sincronización Zucchetti HR Dashboard</div>
+                </div>
+                
+                <div class="header-actions">
+                    <button id="btn-sync" class="btn-action" style="background-color: white; color: #475569; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-radius: 2px;">
+                        <i class="ph ph-arrows-clockwise"></i> SINCRONIZAR AHORA
+                    </button>
+                </div>
+            </header>
+
+            <main class="attendance-container" style="flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem; overflow: auto; background-color: #f1f5f9;">
+                
+                <!-- KPIs de Presencia -->
+                <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+                    <div class="kpi-card" style="background: white; padding: 1.5rem; border-radius: 4px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.5rem;">TOTAL PLANTILLA</div>
+                        <div style="font-size: 2rem; font-weight: 900; color: var(--text-primary);" id="kpi-total">0</div>
+                    </div>
+                    <div class="kpi-card" style="background: white; padding: 1.5rem; border-radius: 4px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-bottom: 4px solid #10b981;">
+                        <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.5rem;">ACTIVOS EN PLANTA</div>
+                        <div style="font-size: 2rem; font-weight: 900; color: #10b981;" id="kpi-present">0</div>
+                    </div>
+                    <div class="kpi-card" style="background: white; padding: 1.5rem; border-radius: 4px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-bottom: 4px solid #94a3b8;">
+                        <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.5rem;">AUSENTES / DESCANSO</div>
+                        <div style="font-size: 2rem; font-weight: 900; color: #64748b;" id="kpi-absent">0</div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Operarios -->
+                <div style="background: white; border-radius: 4px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden;">
+                    
+                    <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); background: #f8fafc; display: flex; justify-content: space-between;">
+                        <div class="search-container" style="position: relative; width: 300px;">
+                            <i class="ph ph-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+                            <input type="text" id="search-attendance" placeholder="Buscar operario..." style="width: 100%; padding: 0.5rem 0.5rem 0.5rem 2.2rem; border: 1px solid #cbd5e1; border-radius: 2px; outline: none; font-family: 'Inter', sans-serif;">
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <select id="filter-status" style="padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 2px; font-weight: 600; color: #475569;">
+                                <option value="ALL">Todos los estados</option>
+                                <option value="PRESENT">En Planta</option>
+                                <option value="ABSENT">Ausentes</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="overflow-x: auto;">
+                        <table class="attendance-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead style="background-color: var(--table-header-bg); color: var(--table-header-text); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px;">
+                                <tr>
+                                    <th style="padding: 1rem;">ESTADO</th>
+                                    <th style="padding: 1rem;">ID TRABAJADOR</th>
+                                    <th style="padding: 1rem;">NOMBRE</th>
+                                    <th style="padding: 1rem;">ÚLTIMO FICHAJE</th>
+                                    <th style="padding: 1rem;">ZONA (ZUCCHETTI)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-body" style="font-size: 0.9rem;">
+                                <!-- Contenido inyectado por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    
+    <script src="../components/sidebar.js"></script>
+    <script src="../shared.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

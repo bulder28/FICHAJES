@@ -1,0 +1,45 @@
+[build]
+  publish = "."
+
+# Bloquear acceso a archivos de configuración de Firebase y ejecutables/documentación
+[[redirects]]
+  from = "/firebase.json"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/firestore.rules"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/firebase.exe"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/Unificar_Excels.bat"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/DOCUMENTACION/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.git/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.agents/*"
+  to = "/404"
+  status = 404
+  force = true

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STULZ - Configuración Global</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar inyectado dinámicamente -->
+        <aside id="sidebar-container"></aside>
+
+        <!-- Espacio de Trabajo Principal -->
+        <div class="workspace">
+            <header class="workspace-header">
+                <div class="workspace-title">
+                    <h1>Configuración Global</h1>
+                    <p class="subtitle">Administración de reglas de negocio y gestión de plantilla</p>
+                </div>
+            </header>
+
+            <div class="config-layout">
+                <!-- Columna Izquierda: Variables Globales -->
+                <div class="config-column">
+                    
+                    <!-- Panel Finanzas -->
+                    <div class="config-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="ph ph-currency-eur panel-icon"></i>
+                            <h3>Variables Financieras</h3>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label for="config-tarifa">Tarifa Media ETT (€/hora)</label>
+                                <input type="number" id="config-tarifa" class="form-input" step="0.1" placeholder="Ej: 18.0">
+                                <span class="input-help">Se usa para calcular los costes de la curva de aprendizaje.</span>
+                            </div>
+                            <button class="btn-primary" onclick="saveConfig('tarifa')">Guardar Tarifa</button>
+                        </div>
+                    </div>
+
+                    <!-- Panel Reglas de Planta -->
+                    <div class="config-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="ph ph-factory panel-icon"></i>
+                            <h3>Reglas de Planta (Poka-Yokes)</h3>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label for="config-max-horas">Límite Máximo de Horas (por registro)</label>
+                                <input type="number" id="config-max-horas" class="form-input" placeholder="Ej: 10">
+                                <span class="input-help">Bloquea la inserción si el operario supera este tope.</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="config-umbral">Umbral de Autonomía (Horas)</label>
+                                <input type="number" id="config-umbral" class="form-input" placeholder="Ej: 10">
+                                <span class="input-help">Horas necesarias para que la matriz marque color Verde.</span>
+                            </div>
+                            <button class="btn-primary" onclick="saveConfig('planta')">Guardar Reglas</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Columna Derecha: Gestión de Operarios -->
+                <div class="config-column wide-column">
+                    <div class="config-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="ph ph-users-three panel-icon"></i>
+                            <h3>Gestión de Plantilla Maestra</h3>
+                            <button class="btn-secondary btn-small" onclick="openWorkerModal()">+ Nuevo Operario</button>
+                        </div>
+                        <div class="panel-body">
+                            <div class="table-controls">
+                                <input type="text" id="search-worker" class="form-input search-input" placeholder="Buscar por ID o Nombre...">
+                            </div>
+                            <div class="table-container">
+                                <table class="data-table" id="workers-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID Operario</th>
+                                            <th>Nombre Completo</th>
+                                            <th>Tipo</th>
+                                            <th>Agencia</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="workers-body">
+                                        <!-- Se llena con JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Formulario Operario -->
+    <div id="worker-modal" class="modal-overlay">
+        <div class="modal-content glass-panel">
+            <h3 id="modal-title">Añadir Operario</h3>
+            <form id="worker-form">
+                <input type="hidden" id="worker-doc-id">
+                <div class="form-group">
+                    <label>ID Trabajador (Gala)</label>
+                    <input type="text" id="worker-id" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre Completo</label>
+                    <input type="text" id="worker-name" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Empleado</label>
+                    <select id="worker-is-ett" class="form-input" onchange="toggleAgenciaField()">
+                        <option value="false">Plantilla STULZ</option>
+                        <option value="true">Personal ETT</option>
+                    </select>
+                </div>
+                <div class="form-group" id="group-agencia" style="display: none;">
+                    <label>Agencia</label>
+                    <select id="worker-agencia" class="form-input">
+                        <option value="">Seleccionar...</option>
+                        <option value="EUROFIRMS">Eurofirms</option>
+                        <option value="AURA">Aura</option>
+                        <option value="OTRA">Otra</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeWorkerModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    
+    <script src="../components/sidebar.js"></script>
+    <script src="../shared.js"></script>
+    <!-- Lógica de la Aplicación -->
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STULZ - Matriz de Polivalencia</title>
+    <!-- Mismos iconos y fuentes que la app principal -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Sidebar inyectado dinámicamente -->
+        <aside id="sidebar-container"></aside>
+
+        <!-- Área Principal de Trabajo -->
+        <div class="workspace">
+            <header class="workspace-header">
+                <div class="workspace-title">
+                    <h2 style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="ph ph-users-three"></i> MATRIZ DE POLIVALENCIA
+                    </h2>
+                    <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">Mapa de Competencias Operativas</div>
+                </div>
+                
+                <!-- Leyenda de colores -->
+                <div class="matrix-legend">
+                    <div class="legend-item"><span class="legend-color legend-red"></span> No Formado (0h)</div>
+                    <div class="legend-item"><span class="legend-color legend-yellow"></span> En Formación (< 10h)</div>
+                    <div class="legend-item"><span class="legend-color legend-green"></span> Autónomo (>= 10h)</div>
+                    <div class="legend-item"><span class="legend-color legend-blue"></span> Experto/Formador (>= 40h)</div>
+                </div>
+            </header>
+
+            <!-- Grid Matrix Container -->
+            <main class="matrix-container">
+                <div class="matrix-controls" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="search-container" style="position: relative; width: 300px; min-width: 250px;">
+                        <i class="ph ph-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1.2rem;"></i>
+                        <input type="text" id="search-matrix" placeholder="Buscar operario..." style="width: 100%; height: 48px; padding: 0.5rem 0.5rem 0.5rem 2.5rem; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-family: 'Inter', sans-serif; font-size: 1rem;">
+                    </div>
+                    
+                    <div class="filter-group" style="display: flex; gap: 0.5rem;">
+                        <select id="filter-seccion" class="form-select" style="height: 48px; min-width: 150px; padding: 0 1rem; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-family: 'Inter', sans-serif; font-size: 1rem;">
+                            <option value="">Todas las Secciones</option>
+                            <option value="MONTAJE">Montaje</option>
+                            <option value="BATERÍAS">Baterías</option>
+                            <option value="CHAPA">Chapa</option>
+                            <option value="ALMACÉN">Almacén</option>
+                        </select>
+                        <select id="filter-turno" class="form-select" style="height: 48px; min-width: 150px; padding: 0 1rem; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-family: 'Inter', sans-serif; font-size: 1rem;">
+                            <option value="">Todos los Turnos</option>
+                            <option value="TURNO MAÑANA">Turno Mañana</option>
+                            <option value="TURNO TARDE">Turno Tarde</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="matrix-table-wrapper">
+                    <table class="matrix-table" id="skills-matrix">
+                        <thead>
+                            <tr>
+                                <th class="sticky-col">OPERARIO</th>
+                                <th>MONTAJE MECÁNICO</th>
+                                <th>MONTAJE ELÉCTRICO</th>
+                                <th>MONTAJE HIDRÁULICO</th>
+                                <th>REFRIGERACIÓN</th>
+                                <th>TEST FINAL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matrix-body">
+                            <tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">Cargando matriz de competencias...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    
+    <script src="../components/sidebar.js"></script>
+    <script src="../shared.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

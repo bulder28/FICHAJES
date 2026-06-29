@@ -1,18 +1,7 @@
-// Tu configuración de Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyCyDAOSXzvQkBiOiCpLdqqwPxqphhR7e94",
-  authDomain: "fichajes-formaci.firebaseapp.com",
-  projectId: "fichajes-formaci",
-  storageBucket: "fichajes-formaci.firebasestorage.app",
-  messagingSenderId: "799065210074",
-  appId: "1:799065210074:web:a5a08917a983364fdfb9e3"
-};
-
-// Inicializar Firebase usando la API Compat
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+// Firebase y funciones compartidas (updateClock, updateDbStatus) ahora están en shared.js
 
 let trainingRecords = [];
+let validWorkerIds = []; // Poka-yoke para validar IDs
 
 const lines = ['L1', 'L2', 'L3', 'L4', 'L5', 'BOX 1'];
 const operations = ['MONTAJE MECÁNICO', 'MONTAJE ELÉCTRICO', 'MONTAJE HIDRÁULICO', 'REFRIGERACIÓN', 'TEST FINAL'];
@@ -20,8 +9,7 @@ const shifts = ['Mañana', 'Tarde'];
 
 // Calcular la fecha laboral del turno (con 2 horas de retraso)
 function getShiftDate() {
-    const now = new Date();
-    now.setHours(now.getHours() - 2);
+    const now = new Date(Date.now() - 2 * 60 * 60 * 1000);
     return now.toISOString().split('T')[0];
 }
 
@@ -34,17 +22,7 @@ function getShiftName() {
     return 'Tarde';
 }
 
-// Actualización en tiempo real del reloj
-function updateClock() {
-    const clockElement = document.getElementById('clock-time');
-    if (clockElement) {
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        clockElement.textContent = `${hours}:${minutes}:${seconds}`;
-    }
-}
+// (updateClock movido a shared.js)
 
 // Notificaciones Toast Corporativas
 function showToast(message, type = 'success') {
@@ -78,15 +56,7 @@ function showToast(message, type = 'success') {
     }, 4000);
 }
 
-// Control visual del indicador de red de Firestore
-function updateDbStatus(online) {
-    const badge = document.getElementById('db-status');
-    if (badge) {
-        badge.className = 'db-status-badge ' + (online ? 'connected' : 'disconnected');
-        const text = badge.querySelector('.status-text');
-        if (text) text.textContent = online ? 'Conectado' : 'Offline';
-    }
-}
+// (updateDbStatus movido a shared.js)
 
 // Modal personalizado de eliminación de registros
 let modalResolveCallback = null;
@@ -114,7 +84,56 @@ function closeConfirmModal(result) {
 }
 
 // Inicializar la aplicación
-function initApp() {
+async function initApp() {
+    // Lógica para Modo Administrador
+    const urlParams = new URLSearchParams(window.location.search);
+    let isAdmin = urlParams.get('admin') === '1';
+
+    const enableAdminMode = () => {
+        isAdmin = true;
+        document.querySelectorAll('.admin-only').forEach(el => {
+            el.style.display = '';
+        });
+    };
+
+    if (isAdmin) {
+        enableAdminMode();
+    }
+
+    // POKA-YOKE: Auto-importación de Calendario Laboral 2026 (Se ejecuta solo 1 vez)
+    if (!localStorage.getItem('calendario2026_importado')) {
+        const holidays2026 = [
+            { fecha: "2026-01-01", motivo: "AÑO NUEVO" }, { fecha: "2026-01-06", motivo: "EPIFANÍA DEL SEÑOR" },
+            { fecha: "2026-04-02", motivo: "JUEVES SANTO" }, { fecha: "2026-04-03", motivo: "VIERNES SANTO" },
+            { fecha: "2026-04-06", motivo: "SUSTITUCIÓN DE SAN JOSÉ" }, { fecha: "2026-05-01", motivo: "DÍA DEL TRABAJO" },
+            { fecha: "2026-06-04", motivo: "CORPUS CHRISTI" }, { fecha: "2026-08-15", motivo: "ASUNCIÓN DE LA VIRGEN" },
+            { fecha: "2026-10-12", motivo: "DÍA DE LA HISPANIDAD" }, { fecha: "2026-11-02", motivo: "SUSTITUCIÓN DE TODOS LOS SANTOS" },
+            { fecha: "2026-12-07", motivo: "SUSTITUCIÓN CONSTITUCIÓN ESPAÑOLA" }, { fecha: "2026-12-08", motivo: "DÍA DE LA INMACULADA CONCEPCIÓN" },
+            { fecha: "2026-12-25", motivo: "NAVIDAD" }, { fecha: "2026-01-02", motivo: "PUENTE" },
+            { fecha: "2026-06-05", motivo: "PUENTE" }, { fecha: "2026-12-24", motivo: "PUENTE (NOCHEBUENA)" },
+            { fecha: "2026-12-31", motivo: "PUENTE (NOCHEVIEJA)" }, { fecha: "2026-03-30", motivo: "VACACIONES" },
+            { fecha: "2026-03-31", motivo: "VACACIONES" }, { fecha: "2026-04-01", motivo: "VACACIONES" },
+            { fecha: "2026-12-28", motivo: "VACACIONES" }, { fecha: "2026-12-29", motivo: "VACACIONES" },
+            { fecha: "2026-12-30", motivo: "VACACIONES" }
+        ];
+        
+        // [FIX ARQUITECTO] Usar for...of en lugar de forEach(async) para garantizar escrituras ordenadas
+        for (const h of holidays2026) {
+            await db.collection('festivos').add({ fecha: h.fecha, motivo: h.motivo, createdAt: Date.now() });
+        }
+        localStorage.setItem('calendario2026_importado', 'true');
+        showToast("Calendario Laboral 2026 importado automáticamente", "success");
+    }
+
+    // Cargar Configuración Global
+    if (typeof getGlobalConfig === 'function') {
+        getGlobalConfig().then(cfg => {
+            window.globalConfig = cfg;
+        });
+    }
+
+    // (Easter Egg eliminado por seguridad - Bug #1 Auditoria QA)
+
     updateClock();
     setInterval(updateClock, 1000);
     
@@ -135,18 +154,26 @@ function initApp() {
 
     // Configurar modal de alta de operarios
     setupWorkerModal();
+    
+    // Configurar modal de festivos
+    setupHolidayModal();
 
     // Escuchar en tiempo real la lista de operarios oficiales
     db.collection("operarios").orderBy("nombre").onSnapshot((snapshot) => {
         const datalist = document.getElementById('workers-list');
         if (datalist) {
             datalist.innerHTML = '';
+            validWorkerIds = [];
             snapshot.forEach(doc => {
                 const opt = document.createElement('option');
                 const data = doc.data();
-                // Usar el ID como valor principal si existe, y el nombre como texto de ayuda
-                opt.value = data.idTrabajador ? data.idTrabajador : data.nombre;
-                opt.textContent = data.nombre;
+                // Usar el ID como valor principal. No mostramos el nombre para mantener privacidad.
+                const displayValue = data.idTrabajador ? data.idTrabajador : data.nombre;
+                
+                if (data.idTrabajador) validWorkerIds.push(data.idTrabajador.toUpperCase());
+                
+                opt.value = displayValue;
+                opt.textContent = displayValue;
                 datalist.appendChild(opt);
             });
         }
@@ -169,7 +196,7 @@ function initApp() {
             trainingRecords.sort((a, b) => a.createdAt - b.createdAt);
             document.getElementById('table-body').innerHTML = '';
             trainingRecords.forEach(record => appendRowToTable(record));
-            isInitialLoad = false;
+            // (isInitialLoad se actualiza más abajo ahora)
         } else {
             snapshot.docChanges().forEach((change) => {
                 const data = { id: change.doc.id, ...change.doc.data() };
@@ -194,8 +221,11 @@ function initApp() {
             });
         }
         
-        if (trainingRecords.length === 0) {
-            addRow();
+        if (isInitialLoad) {
+            if (trainingRecords.length === 0) {
+                addRow();
+            }
+            isInitialLoad = false; // Move isInitialLoad = false here
         }
         
         calculateTotal();
@@ -219,9 +249,33 @@ function setupWorkerModal() {
 
     if (!btnAddWorker || !modal || !btnCancel || !btnConfirm || !nameInput || !idInput) return;
 
+    const seccionSelect = document.getElementById('new-worker-seccion');
+    const lineaContainer = document.getElementById('linea-select-container');
+    const lineaSelect = document.getElementById('new-worker-linea');
+    
+    if (seccionSelect && lineaContainer) {
+        seccionSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'MONTAJE') {
+                lineaContainer.style.display = 'block';
+            } else {
+                lineaContainer.style.display = 'none';
+                if (lineaSelect) lineaSelect.value = 'PENDIENTE DE VALIDACIÓN';
+            }
+        });
+    }
+
     btnAddWorker.addEventListener('click', () => {
         nameInput.value = '';
         idInput.value = '';
+        
+        const turnoEl = document.getElementById('new-worker-turno');
+        const seccionEl = document.getElementById('new-worker-seccion');
+        if (turnoEl) turnoEl.value = '';
+        if (seccionEl) seccionEl.value = '';
+
+        if (lineaContainer) lineaContainer.style.display = 'none';
+        if (lineaSelect) lineaSelect.value = 'PENDIENTE DE VALIDACIÓN';
+
         modal.classList.add('show');
         setTimeout(() => nameInput.focus(), 150);
     });
@@ -234,15 +288,21 @@ function setupWorkerModal() {
 
     btnConfirm.addEventListener('click', async () => {
         const nombre = nameInput.value.trim().toUpperCase();
-        const idTrabajador = idInput.value.trim().toUpperCase();
+        let idTrabajador = idInput.value.trim().toUpperCase();
         
         if (nombre.length < 3) {
             showToast("Introduce el nombre y apellido completo del operario", "warning");
             return;
         }
 
-        if (idTrabajador.length === 0) {
-            showToast("Introduce el ID del trabajador", "warning");
+        // [POKA-YOKE QA] Validación de ID: exactamente 5 dígitos numéricos y prefijo válido
+        if (!/^\d{5}$/.test(idTrabajador)) {
+            showToast("El ID debe tener exactamente 5 dígitos numéricos.", "warning");
+            idInput.focus();
+            return;
+        }
+        if (!idTrabajador.startsWith("00") && !idTrabajador.startsWith("04") && !idTrabajador.startsWith("06")) {
+            showToast("El ID debe empezar por 00 (Empresa), o por 04/06 (ETT).", "warning");
             return;
         }
 
@@ -259,7 +319,6 @@ function setupWorkerModal() {
                 return;
             }
 
-            // Comprobar si ya existe el ID
             const existsIdQuery = await db.collection('operarios').where('idTrabajador', '==', idTrabajador).get();
             if (!existsIdQuery.empty) {
                 showToast("Ya existe un operario con ese ID", "warning");
@@ -268,9 +327,31 @@ function setupWorkerModal() {
                 return;
             }
 
+            const turnoBase = document.getElementById('new-worker-turno').value;
+            const seccionBase = document.getElementById('new-worker-seccion').value;
+            const calendarioBase = 'Lunes a Viernes';
+
+            if (!turnoBase || !seccionBase) {
+                showToast("Por favor, selecciona el Turno y la Sección Base.", "warning");
+                btnConfirm.disabled = false;
+                btnConfirm.textContent = 'Registrar';
+                return;
+            }
+
+            // Regla de Negocio: Montaje -> Línea
+            let lineaReferente = "N/A";
+            if (seccionBase === "MONTAJE") {
+                const lineaSelect = document.getElementById('new-worker-linea');
+                lineaReferente = lineaSelect ? lineaSelect.value : "PENDIENTE DE VALIDACIÓN";
+            }
+
             await db.collection('operarios').add({
                 nombre: nombre,
                 idTrabajador: idTrabajador,
+                turnoBase: turnoBase,
+                seccionBase: seccionBase,
+                calendarioBase: calendarioBase,
+                lineaReferente: lineaReferente,
                 createdAt: Date.now()
             });
 
@@ -345,16 +426,47 @@ async function updateRecordToFirebase(id, field, value) {
     let parsedValue = value;
     if (field === 'tiempo') {
         parsedValue = Math.max(0, parseFloat(value)) || 0;
+        
+        // POKA-YOKE: Máximo de horas por turno según config
+        const maxHoras = (window.globalConfig && window.globalConfig.maxHorasFichaje) ? window.globalConfig.maxHorasFichaje : 10;
+        
+        if (parsedValue > maxHoras) {
+            showToast(`⚠️ Poka-Yoke: Máximo ${maxHoras} horas permitidas por turno.`, "error");
+            parsedValue = maxHoras;
+            // Actualizar visualmente el input si es posible (en el siguiente refresco se arreglará, pero forzamos por si acaso)
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if(row) {
+                const input = row.querySelector('.calc-time');
+                if(input) input.value = maxHoras;
+            }
+        }
     } else if (field === 'trabajador') {
         parsedValue = value.trim().toUpperCase();
+        // POKA-YOKE: Validar que el trabajador existe
+        if (parsedValue !== "" && validWorkerIds.length > 0 && !validWorkerIds.includes(parsedValue)) {
+            showToast("⚠️ Poka-Yoke: ID Trabajador no existe en la BD.", "error");
+            parsedValue = "";
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if(row) {
+                const input = row.querySelector('input[data-field="trabajador"]');
+                if(input) input.value = "";
+            }
+        }
     } else if (field === 'of') {
-        parsedValue = value.trim();
+        // [POKA-YOKE Industria 4.0] Normalizar OF: mayúsculas, sin espacios, sin caracteres extraños
+        parsedValue = value.trim().toUpperCase().replace(/\s+/g, '');
     }
     
     try {
         await db.collection('fichajes').doc(id).update({
             [field]: parsedValue
         });
+        // [UX Industria 4.0] Indicador visual: la fila parpadea en verde al guardar
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) {
+            row.classList.add('row-saved');
+            setTimeout(() => row.classList.remove('row-saved'), 1500);
+        }
     } catch (e) {
         console.error("Error actualizando registro: ", e);
         showToast("Error al guardar cambio: " + e.message, "error");
@@ -403,7 +515,7 @@ function appendRowToTable(record) {
         <td class="td-input"><input type="number" step="0.5" min="0" class="cell-input calc-time" data-field="tiempo" value="${record.tiempo || ''}" placeholder="0.0"></td>
         <td class="td-actions">
             <button class="btn-delete" title="Eliminar fila">
-                Eliminar
+                <i class="ph ph-trash"></i>
             </button>
         </td>
     `;
@@ -508,5 +620,129 @@ function calculateTotal() {
     const totalElement = document.getElementById('total-horas-formacion');
     if (totalElement) {
         totalElement.textContent = total.toFixed(2);
+    }
+
+    // Actualizar KPI Cards en tiempo real
+    const kpiHoras = document.getElementById('kpi-total-horas');
+    if (kpiHoras) {
+        kpiHoras.textContent = total.toFixed(1);
+    }
+
+    const kpiRegistros = document.getElementById('kpi-total-registros');
+    if (kpiRegistros) {
+        // Contamos filas reales que tengan tiempo > 0 o algún dato (o simplemente total de filas)
+        kpiRegistros.textContent = trainingRecords.length;
+    }
+
+    const kpiOperarios = document.getElementById('kpi-total-operarios');
+    if (kpiOperarios) {
+        // Filtrar operarios únicos que tengan introducido un ID de trabajador válido
+        const uniqueWorkers = new Set(trainingRecords.map(r => r.trabajador).filter(id => id && id.trim() !== ''));
+        kpiOperarios.textContent = uniqueWorkers.size;
+    }
+}
+
+// Lógica para el Modal de Festivos (Calendario Laboral)
+function setupHolidayModal() {
+    const btnManage = document.getElementById('btn-manage-holidays');
+    const modal = document.getElementById('holiday-modal');
+    const btnClose = document.getElementById('holiday-btn-close');
+    const btnSave = document.getElementById('btn-save-holiday');
+    const inputDate = document.getElementById('new-holiday-date');
+    const inputName = document.getElementById('new-holiday-name');
+    const tbody = document.getElementById('holidays-table-body');
+    let unsubscribeHolidays = null;
+
+    if (!btnManage || !modal) return;
+
+    const renderHolidays = (snapshot) => {
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        const holidays = [];
+        snapshot.forEach(doc => {
+            holidays.push({ id: doc.id, ...doc.data() });
+        });
+        
+        holidays.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        
+        if (holidays.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 1rem;">No hay festivos configurados</td></tr>`;
+            return;
+        }
+        
+        holidays.forEach(h => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-family: monospace;">${h.fecha}</td>
+                <td>${h.motivo}</td>
+                <td style="text-align: center;">
+                    <button class="btn-delete" onclick="deleteHoliday('${h.id}')" title="Eliminar festivo">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    };
+
+    btnManage.addEventListener('click', () => {
+        modal.classList.add('show');
+        inputDate.value = '';
+        inputName.value = '';
+        
+        if (!unsubscribeHolidays) {
+            unsubscribeHolidays = db.collection('festivos').onSnapshot(renderHolidays, error => {
+                console.error("Error cargando festivos: ", error);
+                showToast("Error al cargar festivos", "error");
+            });
+        }
+    });
+
+    btnClose.addEventListener('click', () => {
+        modal.classList.remove('show');
+        if (unsubscribeHolidays) {
+            unsubscribeHolidays();
+            unsubscribeHolidays = null;
+        }
+    });
+
+    btnSave.addEventListener('click', async () => {
+        const fecha = inputDate.value;
+        const motivo = inputName.value.trim().toUpperCase();
+        
+        if (!fecha || !motivo) {
+            showToast("Introduce una fecha y un motivo válido", "warning");
+            return;
+        }
+        
+        try {
+            btnSave.disabled = true;
+            await db.collection('festivos').add({
+                fecha: fecha,
+                motivo: motivo,
+                createdAt: Date.now()
+            });
+            inputDate.value = '';
+            inputName.value = '';
+            showToast("Día festivo añadido", "success");
+        } catch(e) {
+            console.error(e);
+            showToast("Error al guardar festivo", "error");
+        } finally {
+            btnSave.disabled = false;
+        }
+    });
+}
+
+window.deleteHoliday = async function(id) {
+    if(confirm("¿Seguro que quieres eliminar este festivo?")) {
+        try {
+            await db.collection('festivos').doc(id).delete();
+            showToast("Festivo eliminado", "info");
+        } catch(e) {
+            console.error(e);
+            showToast("Error al eliminar", "error");
+        }
     }
 }

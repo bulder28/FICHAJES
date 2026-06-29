@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STULZ - Gestión ETT (Finanzas)</title>
+    <!-- Iconos y Fuentes -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Librería de gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Sidebar inyectado dinámicamente -->
+        <aside id="sidebar-container"></aside>
+
+        <!-- Área Principal de Trabajo -->
+        <div class="workspace">
+            <header class="workspace-header">
+                <div class="workspace-title">
+                    <h2 style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="ph ph-handshake"></i> GESTIÓN ETT & COSTES
+                    </h2>
+                    <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">Control Financiero de Formación de Personal Externo</div>
+                </div>
+                
+                <div class="header-actions" style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="font-size: 0.85rem; font-weight: 600; color: #64748b; display: flex; align-items: center; gap: 0.5rem; background: #f8fafc; padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #e2e8f0;">
+                            <i class="ph ph-calendar"></i>
+                            <select id="filter-date-ett" style="background: transparent; border: none; outline: none; font-weight: 600; color: var(--text-primary); cursor: pointer;">
+                                <option value="ALL">Todo el Histórico</option>
+                                <option value="MONTH">Últimos 30 días</option>
+                                <option value="QUARTER">Últimos 90 días</option>
+                                <option value="YEAR">Último Año</option>
+                            </select>
+                        </div>
+                        <div style="font-size: 0.85rem; font-weight: 600; color: #64748b; display: flex; align-items: center; gap: 0.5rem; background: #f8fafc; padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #e2e8f0;">
+                        <i class="ph ph-coin"></i> TARIFA BASE: <span style="color: var(--text-primary);">18€ / Hora</span>
+                    </div>
+                </div>
+            </header>
+
+            <main class="ett-container" style="flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem; overflow: auto; background-color: #f1f5f9;">
+                
+                <!-- KPIs Financieros -->
+                <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem;">
+                    <div class="kpi-card">
+                        <div class="kpi-label">TOTAL OPERARIOS ETT</div>
+                        <div class="kpi-value" id="kpi-total-ett">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">EN FASE DE APRENDIZAJE</div>
+                        <div class="kpi-value text-warning" id="kpi-learning-ett">0</div>
+                    </div>
+                    <div class="kpi-card highlight-card">
+                        <div class="kpi-label text-white">INVERSIÓN TOTAL ACUMULADA</div>
+                        <div class="kpi-value text-white" id="kpi-total-cost">0 €</div>
+                        <div style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.8;">Coste hundido en horas de formación</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">COSTE MEDIO POR OPERARIO</div>
+                        <div class="kpi-value text-blue" id="kpi-avg-cost">0 €</div>
+                    </div>
+                </div>
+
+                <!-- Gráficos y Tablas -->
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+                    
+                    <!-- Gráfico Agencias -->
+                    <div style="background: white; border-radius: 4px; border: 1px solid var(--border-color); padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-primary);"><i class="ph ph-chart-pie-slice"></i> Inversión por Agencia</h3>
+                        <div style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="agencyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Desglose -->
+                    <div style="background: white; border-radius: 4px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column;">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="font-size: 1rem; color: var(--text-primary);"><i class="ph ph-list-numbers"></i> Desglose de Inversión por Operario ETT</h3>
+                            <div class="search-container" style="position: relative; width: 250px;">
+                                <i class="ph ph-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+                                <input type="text" id="search-ett" placeholder="Buscar operario..." style="width: 100%; padding: 0.4rem 0.4rem 0.4rem 2.2rem; border: 1px solid #cbd5e1; border-radius: 2px; outline: none; font-size: 0.85rem;">
+                            </div>
+                        </div>
+                        
+                        <div style="overflow-y: auto; max-height: 400px;">
+                            <table class="ett-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                                <thead style="background-color: #f8fafc; color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; position: sticky; top: 0;">
+                                    <tr>
+                                        <th style="padding: 1rem;">OPERARIO</th>
+                                        <th style="padding: 1rem;">AGENCIA</th>
+                                        <th style="padding: 1rem; text-align: center;">HORAS RECIBIDAS</th>
+                                        <th style="padding: 1rem; text-align: center;">ESTADO</th>
+                                        <th style="padding: 1rem; text-align: right;">COSTE ACUMULADO</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ett-body" style="font-size: 0.85rem;">
+                                    <tr><td colspan="5" style="text-align: center; padding: 2rem; color: #64748b;">Calculando datos financieros...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    
+    <script src="../components/sidebar.js"></script>
+    <script src="../shared.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

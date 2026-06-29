@@ -1,0 +1,72 @@
+/* Estilos para el módulo de Presencia */
+
+.attendance-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+}
+
+.attendance-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.attendance-table td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.status-badge.present {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-badge.absent {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-indicator.present {
+    background-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.status-indicator.absent {
+    background-color: #94a3b8;
+}
+
+/* Animación pulsante para el botón de sincronización */
+@keyframes syncPulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.btn-sync-active {
+    animation: syncPulse 2s infinite;
+    border-color: #10b981 !important;
+    color: #10b981 !important;
+}
+
+.btn-sync-active i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
