@@ -60,9 +60,44 @@ async function handleImportOperariosMasivo(e) {
                 showToast("Procesando plantilla de operarios...", "info");
                 const data = new Uint8Array(event.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
+
+                // Detección automática: si el libro trae las hojas "ETT" y/o "Personal fabrica"
+                // usamos el parser específico del formato real (Operarios_Lineas_ETT_*.xlsx)
+                const sheetNames = workbook.SheetNames;
+                const esFormatoLineasETT = sheetNames.includes('ETT') || sheetNames.includes('Personal fabrica');
+
+                let count = 0;
+
+                if (esFormatoLineasETT) {
+                    const opSnapshot = await db.collection('operarios').get();
+                    const dbOperarios = opSnapshot.docs.map(d => ({ id_doc: d.id, ...d.data() }));
+
+                    const registros = parseOperariosLineasWorkbook(workbook, dbOperarios);
+
+                    if (registros.length === 0) {
+                        showToast("No se encontraron operarios válidos en las hojas 'ETT' / 'Personal fabrica'.", "warning");
+                        return;
+                    }
+
+                    const BATCH_SIZE = 400;
+                    for (let i = 0; i < registros.length; i += BATCH_SIZE) {
+                        const batch = db.batch();
+                        const chunk = registros.slice(i, i + BATCH_SIZE);
+                        chunk.forEach(reg => {
+                            const docRef = db.collection('operarios').doc(reg.docId);
+                            batch.set(docRef, reg.payload, { merge: true });
+                        });
+                        await batch.commit();
+                        count += chunk.length;
+                    }
+
+                    showToast(`Se han importado/actualizado ${count} operarios (ETT + Personal fábrica).`, "success");
+                    await loadData();
+                    return;
+                }
+
+                // --- Formato genérico simple: columnas ID | Nombre | Tipo | Sección ---
                 const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // Leemos como JSON (array de arrays) para poder iterar sin importar cómo llamen a las columnas
                 const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
                 if (rows.length < 2) {
@@ -73,7 +108,6 @@ async function handleImportOperariosMasivo(e) {
 
                 // Empezamos desde la fila 1 (ignoramos la 0 que es cabecera)
                 const batch = db.batch();
-                let count = 0;
 
                 for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
@@ -124,6 +158,185 @@ async function handleImportOperariosMasivo(e) {
     } finally {
         e.target.value = ''; // Reset
     }
+}
+
+// ----------------------------------------------------
+// Parser específico para el formato real "Operarios_Lineas_ETT_*.xlsx"
+// Hoja "Personal fabrica" -> plantilla propia STULZ (prefijo ID 00XXX)
+// Hoja "ETT"              -> personal de agencia (Aura -> 04XXX, EuroFirms -> 06XXX)
+// ----------------------------------------------------
+
+function toTitleCase(str) {
+    return (str || '')
+        .toLowerCase()
+        .split(' ')
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+}
+
+function buildIdCounters(dbOperarios) {
+    const counters = { '00': 0, '04': 0, '06': 0 };
+    dbOperarios.forEach(w => {
+        const id = w.idTrabajador || w.id_doc || '';
+        if (/^\d{5}$/.test(id)) {
+            const prefix = id.slice(0, 2);
+            const suffix = parseInt(id.slice(2), 10);
+            if (counters[prefix] !== undefined && suffix > counters[prefix]) {
+                counters[prefix] = suffix;
+            }
+        }
+    });
+    return counters;
+}
+
+function nextId(counters, prefix) {
+    counters[prefix] = (counters[prefix] || 0) + 1;
+    return prefix + String(counters[prefix]).padStart(3, '0');
+}
+
+function excelCellVal(ws, r, c) {
+    const addr = XLSX.utils.encode_cell({ r, c });
+    const cell = ws[addr];
+    if (!cell) return '';
+    return String(cell.v !== undefined ? cell.v : '').trim();
+}
+
+function parseOperariosLineasWorkbook(workbook, dbOperarios) {
+    const registros = [];
+    const counters = buildIdCounters(dbOperarios);
+
+    // Mapa de nombres normalizados -> operario existente (para no duplicar en reimportaciones)
+    const nameMap = {};
+    dbOperarios.forEach(w => {
+        const key = normalizeName(w.nombre);
+        if (key) nameMap[key] = w;
+    });
+
+    // ---------- HOJA "Personal fabrica" (plantilla propia STULZ) ----------
+    if (workbook.SheetNames.includes('Personal fabrica')) {
+        const ws = workbook.Sheets['Personal fabrica'];
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+
+        // Localizar la fila/columna de cabecera buscando la celda "Nombre"
+        let headerRow = -1, nameCol = -1;
+        for (let r = 0; r <= Math.min(10, range.e.r) && headerRow === -1; r++) {
+            for (let c = 0; c <= range.e.c; c++) {
+                if (excelCellVal(ws, r, c).toUpperCase() === 'NOMBRE') {
+                    headerRow = r; nameCol = c; break;
+                }
+            }
+        }
+
+        if (headerRow !== -1) {
+            const deptCol = nameCol + 1;
+            const checkCol = nameCol + 2;
+            const turnoCol = nameCol + 3;
+            const lineaCol = nameCol + 4;
+
+            for (let r = headerRow + 1; r <= range.e.r; r++) {
+                const nombre = excelCellVal(ws, r, nameCol);
+                if (!nombre) continue;
+
+                // Si hay columna "Check" y no dice OK, saltamos la fila (dato incompleto/de baja)
+                const check = excelCellVal(ws, r, checkCol);
+                if (check && !check.toUpperCase().includes('OK')) continue;
+
+                const departamento = excelCellVal(ws, r, deptCol);
+                const turno = excelCellVal(ws, r, turnoCol);
+                const linea = excelCellVal(ws, r, lineaCol);
+
+                const key = normalizeName(nombre);
+                const existing = nameMap[key];
+                const docId = existing ? (existing.idTrabajador || existing.id_doc) : nextId(counters, '00');
+
+                registros.push({
+                    docId,
+                    payload: {
+                        idTrabajador: docId,
+                        nombre: nombre,
+                        isETT: false,
+                        agencia: null,
+                        seccionBase: departamento ? departamento.toUpperCase() : '',
+                        lineaBase: linea ? linea.toUpperCase() : '',
+                        turnoBase: turno || '',
+                        updatedAt: new Date().toISOString()
+                    }
+                });
+
+                if (!existing) nameMap[key] = { idTrabajador: docId };
+            }
+        }
+    }
+
+    // ---------- HOJA "ETT" (personal de agencia) ----------
+    if (workbook.SheetNames.includes('ETT')) {
+        const ws = workbook.Sheets['ETT'];
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+
+        // Columnas fijas del formato conocido: B=Empleado, C=Empresa, E=Sección, G=Línea, J=Turno
+        const EMPLEADO_COL = 1, EMPRESA_COL = 2, SECCION_COL = 4, LINEA_COL = 6, TURNO_COL = 9;
+
+        for (let r = 1; r <= range.e.r; r++) {
+            const empleadoRaw = excelCellVal(ws, r, EMPLEADO_COL);
+            if (!empleadoRaw) continue;
+
+            // El nombre viene como "APELLIDOS, NOMBRE" -> lo invertimos a "Nombre Apellidos"
+            let nombre;
+            if (empleadoRaw.includes(',')) {
+                const partes = empleadoRaw.split(',');
+                const apellidos = partes[0].trim();
+                const nombrePila = partes.slice(1).join(',').trim();
+                nombre = toTitleCase(`${nombrePila} ${apellidos}`);
+            } else {
+                nombre = toTitleCase(empleadoRaw);
+            }
+
+            const empresaRaw = excelCellVal(ws, r, EMPRESA_COL).toUpperCase();
+
+            // Filtrar bajas / no incorporados: si en cualquier celda de la fila aparece
+            // "BAJA" o "NO INCORPORADO", omitimos la fila
+            let esBaja = false;
+            for (let c = 0; c <= range.e.c; c++) {
+                const v = excelCellVal(ws, r, c).toUpperCase();
+                if (v.includes('BAJA') || v.includes('NO INCORPORADO')) { esBaja = true; break; }
+            }
+            if (esBaja) continue;
+
+            let agencia = 'OTRA', prefix = '06';
+            if (empresaRaw.includes('AURA')) { agencia = 'AURA'; prefix = '04'; }
+            else if (empresaRaw.includes('EURO')) { agencia = 'EUROFIRMS'; prefix = '06'; }
+
+            const seccion = excelCellVal(ws, r, SECCION_COL);
+            const linea = excelCellVal(ws, r, LINEA_COL);
+            const turno = excelCellVal(ws, r, TURNO_COL);
+
+            const key = normalizeName(nombre);
+            const existing = nameMap[key];
+            const docId = existing ? (existing.idTrabajador || existing.id_doc) : nextId(counters, prefix);
+
+            registros.push({
+                docId,
+                payload: {
+                    idTrabajador: docId,
+                    nombre: nombre,
+                    isETT: true,
+                    agencia: agencia,
+                    seccionBase: seccion ? seccion.toUpperCase() : '',
+                    lineaBase: linea ? linea.toUpperCase() : '',
+                    turnoBase: turno || '',
+                    updatedAt: new Date().toISOString()
+                }
+            });
+
+            if (!existing) nameMap[key] = { idTrabajador: docId };
+        }
+    }
+
+    // Deduplicar por docId (si una persona aparece dos veces en el Excel, gana la última fila)
+    const porId = {};
+    registros.forEach(reg => { porId[reg.docId] = reg; });
+    return Object.values(porId);
 }
 
 async function handleImportIluo() {
