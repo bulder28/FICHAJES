@@ -11,9 +11,6 @@
  */
 
 /**
- * Convierte "APELLIDO1 APELLIDO2, NOMBRE" → iniciales de 3 letras (NAS)
- * o "NOMBRE APELLIDO1 APELLIDO2" → iniciales (NAA)
- */
  * Normaliza nombres para hacer "fuzzy match" con la base de datos
  */
 function normalizeName(name) {
