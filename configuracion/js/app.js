@@ -482,9 +482,15 @@ async function loadWorkers() {
         
         // Ordenar numéricamente o alfabéticamente por ID
         operariosData.sort((a, b) => (a.idTrabajador || a.id || '').localeCompare(b.idTrabajador || b.id || ''));
+        console.log("Operarios cargados desde Firebase:", operariosData.length);
+        
+        // Mostrar en la pantalla lo que ve el navegador
+        showToast("DEBUG: Encontrados " + operariosData.length + " operarios en Firebase", "info");
+
         renderWorkersTable();
     } catch (e) {
         console.error("Error cargando operarios:", e);
+        showToast("DEBUG ERROR: " + e.message, "error");
     }
 }
 
@@ -661,9 +667,16 @@ async function handleSyncLineas(e) {
                 }
                 
                 let count = 0;
-                let notFound = 0;
+                let added = 0;
                 
-                const batch = db.batch();
+                const batches = [db.batch()];
+                let currentBatch = 0;
+                let opCount = 0;
+
+                const normalize = (str) => {
+                    if (!str) return '';
+                    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+                };
                 
                 // Iterar desde la fila 1 (datos)
                 for (let i = 1; i < rows.length; i++) {
@@ -689,24 +702,52 @@ async function handleSyncLineas(e) {
                     
                     if (!idTrabajador || idTrabajador.length !== 3) continue;
                     
-                    // Buscar en operariosData si existe
-                    const existing = operariosData.find(w => w.idTrabajador === idTrabajador || w.id_doc === idTrabajador);
+                    // Buscar en operariosData si existe por ID o por nombre
+                    const normFullName = normalize(fullName);
+                    const existing = operariosData.find(w => 
+                        w.idTrabajador === idTrabajador || 
+                        w.id_doc === idTrabajador ||
+                        normalize(w.nombre) === normFullName
+                    );
+                    
+                    let ref;
                     if (existing) {
-                        const ref = db.collection('operarios').doc(existing.id_doc);
-                        batch.update(ref, { 
+                        ref = db.collection('operarios').doc(existing.id_doc);
+                        batches[currentBatch].update(ref, { 
                             lineaBase: linea,
                             updatedAt: new Date().toISOString()
                         });
                         count++;
                     } else {
-                        notFound++;
+                        // Crear nuevo operario
+                        ref = db.collection('operarios').doc(idTrabajador);
+                        batches[currentBatch].set(ref, {
+                            idTrabajador: idTrabajador,
+                            nombre: fullName,
+                            isETT: true, // Automáticamente asignado a ETT
+                            agencia: 'EUROFIRMS',
+                            seccionAsignada: "Producción",
+                            lineaBase: linea,
+                            updatedAt: new Date().toISOString()
+                        }, { merge: true });
+                        added++;
+                    }
+
+                    opCount++;
+                    if (opCount >= 450) { // Límite de seguridad para Firebase (max 500)
+                        batches.push(db.batch());
+                        currentBatch++;
+                        opCount = 0;
                     }
                 }
                 
-                await batch.commit();
+                // Ejecutar todos los lotes
+                for (let b of batches) {
+                    await b.commit();
+                }
                 
                 await loadWorkers();
-                showToast(`Sincronización completada. ${count} operarios actualizados. (${notFound} no encontrados)`, "success");
+                showToast(`Sincronización completada: ${added} nuevos y ${count} actualizados.`, "success");
 
             } catch (err) {
                 console.error(err);
