@@ -718,19 +718,6 @@ async function handleSyncLineas(e) {
                             updatedAt: new Date().toISOString()
                         });
                         count++;
-                    } else {
-                        // Crear nuevo operario
-                        ref = db.collection('operarios').doc(idTrabajador);
-                        batches[currentBatch].set(ref, {
-                            idTrabajador: idTrabajador,
-                            nombre: fullName,
-                            isETT: true, // Automáticamente asignado a ETT
-                            agencia: 'EUROFIRMS',
-                            seccionAsignada: "Producción",
-                            lineaBase: linea,
-                            updatedAt: new Date().toISOString()
-                        }, { merge: true });
-                        added++;
                     }
 
                     opCount++;
@@ -747,7 +734,7 @@ async function handleSyncLineas(e) {
                 }
                 
                 await loadWorkers();
-                showToast(`Sincronización completada: ${added} nuevos y ${count} actualizados.`, "success");
+                showToast(`Sincronización de líneas completada: ${count} actualizados.`, "success");
 
             } catch (err) {
                 console.error(err);
