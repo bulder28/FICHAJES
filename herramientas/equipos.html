@@ -80,6 +80,7 @@ body{
 .card.silver{background:linear-gradient(160deg,#33404f,#8a97a8 45%,#dfe8f2 100%);color:#1a2230}
 .card.bronze{background:linear-gradient(160deg,#3a2414,#8a5a34 45%,#d29868 100%);color:#241205}
 .card.special{background:linear-gradient(160deg,#04140f,#0a3d2d 40%,#12d6a0 110%);color:#eafff8;border-color:#12d6a0}
+.card.nodata{background:linear-gradient(160deg,#141b2b,#1d2740 60%,#2a3654 100%);color:var(--ink-dim);border-style:dashed}
 .card .c-top{display:flex;justify-content:space-between;align-items:flex-start}
 .card .ovr{font-family:'Rajdhani';font-weight:700;font-size:2.4rem;line-height:.9}
 .card .pos{font-family:'Rajdhani';font-weight:600;font-size:.9rem;letter-spacing:1px;opacity:.85;margin-top:.15rem}
@@ -179,41 +180,65 @@ function posicion(sec){
   return 'PRO';
 }
 
-// Genera stats deterministas a partir del ID (mientras no haya skill_scores reales enlazados)
-// Semilla estable -> mismo operario siempre igual. Sustituible por datos reales.
-function seed(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0)}
-function rng(s){return ()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
+// ---------- Datos reales de polivalencia (skill_scores) ----------
+// Fórmula oficial (polivalencia/js/app.js): stat = round(media niveles ILUO / 4 * 99), clamp [30,99]
+function iluoStat(sum, count){
+  if(!count) return null;
+  return Math.min(99, Math.max(30, Math.round((sum/count)/4*99)));
+}
+
+// Abreviaturas de sección para las casillas de la carta (6 secciones = 6 slots)
+const SECS=[
+  {key:'MONTAJE MECÁNICO',      ab:'MEC'},
+  {key:'MONTAJE ELÉCTRICO',     ab:'ELE'},
+  {key:'BATERÍAS',              ab:'BAT'},
+  {key:'PERFILERÍA Y SOLDADURA',ab:'PyS'},
+  {key:'LOGÍSTICA',             ab:'LOG'},
+  {key:'TRANSFORMACIÓN METÁLICA',ab:'TRF'}
+];
+function normSec(s){return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim()}
+
+// skill_scores agrupados por operario: SKILLS[id] = [{seccion, scores:{tarea:nivel}}, ...]
+let SKILLS={};
 
 function statsFor(op){
-  const r=rng(seed(op.idTrabajador||op.id_doc||op.nombre));
-  const base = op.isETT ? 58 : 68;               // plantilla propia arranca más alto
-  const spread = op.isETT ? 26 : 24;
-  const mk=()=>Math.max(40,Math.min(99,Math.round(base + (r()-0.35)*spread)));
-  const s = {
-    FOR: mk(), // Formación
-    POL: mk(), // Polivalencia
-    ASI: mk(), // Asistencia
-    PRO: mk(), // Productividad
-    CAL: mk(), // Calidad
-    EXP: mk()  // Experiencia
+  const id = op.idTrabajador || op.id_doc;
+  const docs = SKILLS[id] || [];
+  const perSec = {};                 // ab -> {sum,count}
+  let totalSum=0, totalCount=0;
+  const allTasks=[];                 // [{seccion, tarea, nivel}] para el modal
+
+  docs.forEach(d=>{
+    const sec = SECS.find(x=>normSec(x.key)===normSec(d.seccion));
+    const ab = sec ? sec.ab : 'PRO';
+    Object.entries(d.scores||{}).forEach(([tarea,nivel])=>{
+      nivel = Number(nivel)||0;
+      if(nivel<1) return;
+      (perSec[ab] ||= {sum:0,count:0});
+      perSec[ab].sum += nivel; perSec[ab].count++;
+      totalSum += nivel; totalCount++;
+      allTasks.push({seccion:d.seccion, tarea, nivel});
+    });
+  });
+
+  const bySec = {};
+  SECS.forEach(s=>{ bySec[s.ab] = perSec[s.ab] ? iluoStat(perSec[s.ab].sum, perSec[s.ab].count) : null; });
+
+  return {
+    OVR: iluoStat(totalSum, totalCount),          // null si no tiene datos ILUO
+    bySec,
+    nSecciones: Object.keys(perSec).length,       // polivalencia: nº de secciones con niveles
+    nTareas: totalCount,
+    tasks: allTasks.sort((a,b)=>b.nivel-a.nivel)
   };
-  s.OVR = Math.round((s.FOR*0.25 + s.POL*0.2 + s.ASI*0.15 + s.PRO*0.2 + s.CAL*0.12 + s.EXP*0.08));
-  return s;
 }
-function tier(ovr,isETT){
+function tier(ovr){
+  if(ovr===null)return 'nodata';
   if(ovr>=88)return 'special';
   if(ovr>=80)return 'gold';
   if(ovr>=70)return 'silver';
   return 'bronze';
 }
-function firstName(n){const p=(n||'').trim().split(' ');return (p[0]||'').toUpperCase()}
-function shortName(n){
-  const p=(n||'').trim().split(' ').filter(Boolean);
-  if(p.length<=2)return n.toUpperCase();
-  return (p[0][0]+'. '+p.slice(1).join(' ')).toUpperCase();
-}
-function initials(n){const p=(n||'').trim().split(' ').filter(Boolean);return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'')}
-
 // ---------- Definición de los 11 equipos ----------
 const LINEAS=['L1','L2','L3','L4','L5'];
 const TEAMS=[];
@@ -234,8 +259,17 @@ function assignTeam(op){
 
 async function load(){
   try{
-    const snap=await db.collection('operarios').get();
+    const [snap, skillsSnap] = await Promise.all([
+      db.collection('operarios').get(),
+      db.collection('skill_scores').get()
+    ]);
     OPERARIOS=snap.docs.map(d=>({id_doc:d.id,...d.data()}));
+    SKILLS={};
+    skillsSnap.docs.forEach(d=>{
+      const s=d.data();
+      if(!s.idTrabajador) return;
+      (SKILLS[s.idTrabajador] ||= []).push({seccion:s.seccion, scores:s.scores||{}});
+    });
     // reparto
     const byTeam={}; TEAMS.forEach(t=>byTeam[t.id]=[]);
     BENCH={}; LINEAS.forEach(L=>BENCH[L]=[]);
@@ -269,12 +303,16 @@ function renderBar(){
   });
 }
 
-function teamOVR(list){if(!list.length)return 0;return Math.round(list.reduce((s,o)=>s+o._stats.OVR,0)/list.length)}
-function avg(list,k){if(!list.length)return 0;return Math.round(list.reduce((s,o)=>s+o._stats[k],0)/list.length)}
+function teamOVR(list){
+  const withData=list.filter(o=>o._stats.OVR!==null);
+  if(!withData.length)return '—';
+  return Math.round(withData.reduce((s,o)=>s+o._stats.OVR,0)/withData.length);
+}
 
 function renderLocker(){
   const t=TEAMS.find(x=>x.id===ACTIVE);
-  let list=(window._byTeam[ACTIVE]||[]).slice().sort((a,b)=>b._stats.OVR-a._stats.OVR);
+  const byOVR=(a,b)=>((b._stats.OVR??-1)-(a._stats.OVR??-1));
+  let list=(window._byTeam[ACTIVE]||[]).slice().sort(byOVR);
   const benchList = t.turno ? (BENCH[t.linea]||[]) : [];
   const locker=document.getElementById('locker');
 
@@ -286,10 +324,9 @@ function renderLocker(){
       </div>
       <div class="kpi-row">
         <div class="kpi"><div class="v">${list.length}</div><div class="k">Plantilla</div></div>
-        <div class="kpi"><div class="v">${avg(list,'FOR')}</div><div class="k">Formación</div></div>
-        <div class="kpi"><div class="v">${avg(list,'POL')}</div><div class="k">Polivalencia</div></div>
-        <div class="kpi"><div class="v">${avg(list,'ASI')}</div><div class="k">Asistencia</div></div>
-        <div class="kpi"><div class="v">${avg(list,'PRO')}</div><div class="k">Productividad</div></div>
+        <div class="kpi"><div class="v">${list.filter(o=>o._stats.OVR!==null).length}</div><div class="k">Con ILUO</div></div>
+        <div class="kpi"><div class="v">${list.length?(list.reduce((s,o)=>s+o._stats.nSecciones,0)/list.length).toFixed(1):'0'}</div><div class="k">Poliv. media</div></div>
+        <div class="kpi"><div class="v">${list.reduce((s,o)=>s+o._stats.nTareas,0)}</div><div class="k">Niveles ILUO</div></div>
       </div>
       <div class="team-ovr"><div class="n">${ovr}</div><div class="l">MEDIA EQUIPO</div></div>
     </div>`;
@@ -301,7 +338,7 @@ function renderLocker(){
   if(benchList.length){
     benchBlock=`<h3 style="font-family:'Rajdhani';letter-spacing:2px;margin:2rem 0 1rem;color:var(--ink-dim)">
       BANQUILLO ${t.linea} · sin turno asignado (${benchList.length})</h3>
-      <div class="cards">${benchList.slice().sort((a,b)=>b._stats.OVR-a._stats.OVR).map(cardHTML).join('')}</div>`;
+      <div class="cards">${benchList.slice().sort(byOVR).map(cardHTML).join('')}</div>`;
   }
 
   const legend=`<div class="legend">
@@ -309,7 +346,8 @@ function renderLocker(){
     <span><i style="background:linear-gradient(135deg,#8a97a8,#dfe8f2)"></i>Plata 70-79</span>
     <span><i style="background:linear-gradient(135deg,#8a5a34,#d29868)"></i>Bronce &lt;70</span>
     <span><i style="background:linear-gradient(135deg,#0a3d2d,#12d6a0)"></i>Especial 88+</span>
-    <span style="margin-left:auto">Stats provisionales sobre datos del Excel · listas para enlazar skill_scores reales</span>
+    <span><i style="background:linear-gradient(135deg,#1d2740,#2a3654);border:1px dashed var(--ink-dim)"></i>Sin datos ILUO</span>
+    <span style="margin-left:auto">OVR = media niveles ILUO / 4 × 99 (mín 30) · datos reales de skill_scores</span>
   </div>`;
 
   locker.innerHTML=head+cards+benchBlock+legend;
@@ -317,41 +355,52 @@ function renderLocker(){
 }
 
 function cardHTML(op){
-  const s=op._stats;const cls=tier(s.OVR,op.isETT);
+  const s=op._stats;const cls=tier(s.OVR);
   const ag=op.isETT?(op.agencia||'ETT'):'STULZ';
+  const id=op.idTrabajador||op.id_doc;
+  const cell=ab=>`<span>${ab} <b>${s.bySec[ab]??'—'}</b></span>`;
   return `<div class="card ${cls}" data-id="${op.id_doc}">
     <div class="c-top">
-      <div><div class="ovr">${s.OVR}</div><div class="pos">${posicion(op.seccionBase||op.seccionAsignada)}</div></div>
+      <div><div class="ovr">${s.OVR??'—'}</div><div class="pos">${posicion(op.seccionBase||op.seccionAsignada)}</div></div>
       <div class="agency">${ag}</div>
     </div>
-    <div class="photo">${initials(op.nombre)}</div>
-    <div class="name">${shortName(op.nombre)}</div>
+    <div class="photo">${id}</div>
+    <div class="name">${s.nSecciones?`${s.nSecciones} secc · ${s.nTareas} niveles`:'SIN DATOS ILUO'}</div>
     <div class="stats">
-      <span>FOR <b>${s.FOR}</b></span><span>PRO <b>${s.PRO}</b></span>
-      <span>POL <b>${s.POL}</b></span><span>CAL <b>${s.CAL}</b></span>
-      <span>ASI <b>${s.ASI}</b></span><span>EXP <b>${s.EXP}</b></span>
+      ${cell('MEC')}${cell('PyS')}
+      ${cell('ELE')}${cell('LOG')}
+      ${cell('BAT')}${cell('TRF')}
     </div>
-    <div class="id-tag">${op.idTrabajador||op.id_doc}</div>
+    <div class="id-tag">${id}</div>
   </div>`;
 }
 
 function openCard(id){
   const op=OPERARIOS.find(o=>o.id_doc===id);if(!op)return;
   const s=op._stats;
-  const rows=[['Formación','FOR'],['Polivalencia','POL'],['Asistencia','ASI'],
-    ['Productividad','PRO'],['Calidad','CAL'],['Experiencia','EXP']];
-  const bars=rows.map(([l,k])=>`
-    <div class="bar-row"><div class="lab">${l}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${s[k]}%"></div></div>
-      <div class="val">${s[k]}</div></div>`).join('');
+  const oid=op.idTrabajador||op.id_doc;
+
+  const bars=SECS.filter(x=>s.bySec[x.ab]!==null).map(x=>`
+    <div class="bar-row"><div class="lab">${x.ab} · ${x.key.split(' ')[0]}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${s.bySec[x.ab]}%"></div></div>
+      <div class="val">${s.bySec[x.ab]}</div></div>`).join('')
+    || `<div style="color:var(--ink-dim);font-family:'Rajdhani';letter-spacing:1px">Sin niveles ILUO registrados en las matrices.</div>`;
+
+  const top=s.tasks.slice(0,8).map(t=>`
+    <div style="display:flex;justify-content:space-between;gap:1rem;font-size:.85rem;padding:.25rem 0;border-bottom:1px solid rgba(255,255,255,.06)">
+      <span style="color:var(--ink-dim)">${t.tarea}</span>
+      <b style="font-family:'Rajdhani';color:${t.nivel>=4?'var(--special)':t.nivel>=3?'var(--gold)':'var(--ink)'}">${'●'.repeat(t.nivel)}${'○'.repeat(4-t.nivel)} ${t.nivel}/4</b>
+    </div>`).join('');
+
   document.getElementById('sheet').innerHTML=`
     <span class="close" onclick="closeModal()">✕</span>
-    <h3>${op.nombre}</h3>
-    <div class="sub">${op.idTrabajador||op.id_doc} · ${op.isETT?(op.agencia||'ETT'):'STULZ'} · ${posicion(op.seccionBase||op.seccionAsignada)} · ${normLinea(op.lineaBase)||'—'} ${op.turnoBase||''}</div>
+    <h3>OPERARIO ${oid}</h3>
+    <div class="sub">${op.isETT?(op.agencia||'ETT'):'STULZ'} · ${posicion(op.seccionBase||op.seccionAsignada)} · ${normLinea(op.lineaBase)||'—'} ${op.turnoBase||''} · ${s.nTareas} niveles en ${s.nSecciones} sección(es)</div>
     <div style="display:flex;gap:1.5rem;align-items:center">
-      <div style="font-family:'Rajdhani';font-weight:700;font-size:3.5rem;color:var(--gold);line-height:1">${s.OVR}<div style="font-size:.6rem;letter-spacing:2px;color:var(--ink-dim)">VALORACIÓN</div></div>
-      <div style="flex:1">${bars}</div>
-    </div>`;
+      <div style="font-family:'Rajdhani';font-weight:700;font-size:3.5rem;color:var(--gold);line-height:1">${s.OVR??'—'}<div style="font-size:.6rem;letter-spacing:2px;color:var(--ink-dim)">VALORACIÓN ILUO</div></div>
+      <div style="flex:1"><div class="bars">${bars}</div></div>
+    </div>
+    ${top?`<h4 style="font-family:'Rajdhani';letter-spacing:2px;margin:1.25rem 0 .5rem;color:var(--ink-dim)">MEJORES HABILIDADES</h4>${top}`:''}`;
   document.getElementById('modal').classList.add('open');
 }
 function closeModal(){document.getElementById('modal').classList.remove('open')}
