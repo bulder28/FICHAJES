@@ -283,7 +283,9 @@ async function importarMatrizILUO(file, linea, seccionOverride) {
                 try {
                     const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
 
-                    const seccion = seccionOverride || guessSeccionFromFileName(file.name);
+                    // Prioridad: nombre de archivo (permite subir varias matrices a la vez);
+                    // el selector manual solo se usa si el nombre no es reconocible.
+                    const seccion = guessSeccionFromFileName(file.name) || seccionOverride;
                     if (!seccion) {
                         reject(new Error(`No se pudo determinar la sección del archivo "${file.name}". Selecciónala manualmente.`));
                         return;
