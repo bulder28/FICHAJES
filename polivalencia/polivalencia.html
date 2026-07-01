@@ -57,8 +57,9 @@
                         </select>
                         <select id="filter-turno" class="form-select" style="height: 48px; min-width: 150px; padding: 0 1rem; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-family: 'Inter', sans-serif; font-size: 1rem;">
                             <option value="">Todos los Turnos</option>
-                            <option value="TURNO MAÑANA">Turno Mañana</option>
-                            <option value="TURNO TARDE">Turno Tarde</option>
+                            <!-- [FIX BUG-02] Valores corregidos: deben coincidir con turnoBase guardado en Firestore ('Mañana'/'Tarde') -->
+                            <option value="Mañana">Turno Mañana</option>
+                            <option value="Tarde">Turno Tarde</option>
                         </select>
                     </div>
                 </div>
@@ -68,11 +69,13 @@
                         <thead>
                             <tr>
                                 <th class="sticky-col">OPERARIO</th>
+                                <!-- [FIX BUG-01] Cabeceras alineadas con campo 'departamento' del registro -->
                                 <th>MONTAJE MECÁNICO</th>
                                 <th>MONTAJE ELÉCTRICO</th>
-                                <th>MONTAJE HIDRÁULICO</th>
-                                <th>REFRIGERACIÓN</th>
-                                <th>TEST FINAL</th>
+                                <th>BATERÍAS</th>
+                                <th>TRANSFORM. METÁLICA</th>
+                                <th>PERFILERÍA Y SOLDADURA</th>
+                                <th>LOGÍSTICA</th>
                             </tr>
                         </thead>
                         <tbody id="matrix-body">

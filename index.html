@@ -333,19 +333,8 @@
         const viewLauncher = document.getElementById('view-launcher');
         const viewApp = document.getElementById('view-app');
 
-        // Actualizar badge del turno y fecha en el Launcher
-        function updateLauncherInfo() {
-            const now = new Date();
-            const hour = now.getHours();
-            const shift = (hour >= 6 && hour < 14) ? 'TURNO MAÑANA' : 'TURNO TARDE';
-            const dateStr = now.toLocaleDateString('es-ES', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-            const shiftLabel = document.getElementById('launcher-shift-label');
-            const dateLabel = document.getElementById('launcher-date');
-            if (shiftLabel) shiftLabel.textContent = shift;
-            if (dateLabel) dateLabel.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-        }
-        updateLauncherInfo();
-        setInterval(updateLauncherInfo, 60000);
+        // [FIX BUG-10] updateLauncherInfo() eliminada: los IDs 'launcher-shift-label' y 'launcher-date'
+        // no existen en el HTML. La función era código muerto que se ejecutaba cada minuto sin efecto.
 
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -397,6 +386,8 @@
             if (inputHash === PIN_HASH) {
                 closePinModal();
                 viewLauncher.style.opacity = '0';
+                // [FIX BUG-06] Persistir estado admin en sessionStorage para que sobreviva la navegación
+                sessionStorage.setItem('stulz_admin', '1');
                 setTimeout(() => {
                     viewLauncher.style.display = 'none';
                     viewApp.style.display = 'flex';

@@ -1,11 +1,13 @@
 // js/app.js para el módulo de Polivalencia
 
+// [FIX BUG-01] Columnas de la matriz alineadas con el campo 'departamento' del registro de formación
 const OPERATIONS = [
-    'MONTAJE MECÁNICO', 
-    'MONTAJE ELÉCTRICO', 
-    'MONTAJE HIDRÁULICO', 
-    'REFRIGERACIÓN', 
-    'TEST FINAL'
+    'Montaje Mecánico', 
+    'Montaje Eléctrico', 
+    'Baterías', 
+    'Transformación Metálica',
+    'Perfilería y Soldadura',
+    'Logística'
 ];
 
 let workersData = [];
@@ -47,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadMatrixData() {
     if (typeof updateDbStatus === 'function') updateDbStatus(false);
-    document.getElementById('matrix-body').innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">Conectando con base de datos de recursos humanos...</td></tr>`;
+    document.getElementById('matrix-body').innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #64748b;">Conectando con base de datos de recursos humanos...</td></tr>`;
     
     // 1. Cargar todos los operarios
     const operariosSnapshot = await db.collection('operarios').orderBy('nombre').get();
@@ -74,15 +76,16 @@ async function loadMatrixData() {
             });
         });
 
-        // Sumar horas
+        // Sumar horas por departamento
         snapshot.forEach(doc => {
             const f = doc.data();
-            const idT = f.trabajador; // En fichajes se guarda como trabajador
-            const op = f.operacion;
+            const idT = f.trabajador;
+            // [FIX BUG-01] Campo correcto: 'departamento' (antes era 'operacion')
+            const dept = (f.departamento || '').trim();
             const horas = parseFloat(f.tiempo) || 0;
             
-            if (idT && op && matrixData[idT] !== undefined && matrixData[idT][op] !== undefined) {
-                matrixData[idT][op] += horas;
+            if (idT && dept && matrixData[idT] !== undefined && matrixData[idT][dept] !== undefined) {
+                matrixData[idT][dept] += horas;
             }
         });
 
@@ -134,7 +137,7 @@ function renderMatrix(searchTerm = '', seccion = '', turno = '') {
     });
 
     if (filteredWorkers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">No se encontraron operarios.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #64748b;">No se encontraron operarios.</td></tr>`;
         return;
     }
 

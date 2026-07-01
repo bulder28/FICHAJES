@@ -97,39 +97,33 @@ async function loadData() {
 }
 
 async function calculateCurrentCompetences() {
-    // Igual que en la matriz, necesitamos sumar las horas de cada operario por operación
+    // [FIX BUG-01] Leer campo 'departamento' (antes era 'operacion' — campo que nunca se guardaba)
     const fichajesSnapshot = await db.collection('fichajes').get();
     
-    const matrix = {}; // idTrabajador -> { operacion -> horas }
+    const matrix = {}; // idTrabajador -> { departamento -> horas }
     fichajesSnapshot.forEach(doc => {
         const f = doc.data();
         const idT = f.trabajador;
-        const op = f.operacion;
+        // [FIX BUG-01] Campo correcto: 'departamento'
+        const dept = (f.departamento || '').trim().toUpperCase();
         const horas = parseFloat(f.tiempo) || 0;
         
-        if (idT && op) {
+        if (idT && dept) {
             if (!matrix[idT]) matrix[idT] = {};
-            if (!matrix[idT][op]) matrix[idT][op] = 0;
-            matrix[idT][op] += horas;
+            if (!matrix[idT][dept]) matrix[idT][dept] = 0;
+            matrix[idT][dept] += horas;
         }
     });
 
-    // Resetear contadores
-    currentCompetences = {
-        'MONTAJE MECÁNICO': 0,
-        'MONTAJE ELÉCTRICO': 0,
-        'MONTAJE HIDRÁULICO': 0,
-        'REFRIGERACIÓN': 0,
-        'TEST FINAL': 0
-    };
+    // Resetear contadores con los departamentos reales del registro
+    currentCompetences = {};
 
-    // Contar cuántos son autónomos (>= config umbral)
+    // Contar cuántos operarios son autónomos (>= umbral) por departamento
     Object.keys(matrix).forEach(idT => {
-        Object.keys(matrix[idT]).forEach(op => {
-            if (matrix[idT][op] >= (window.HOURS_FOR_AUTONOMOUS || 10)) {
-                if (currentCompetences[op] !== undefined) {
-                    currentCompetences[op]++;
-                }
+        Object.keys(matrix[idT]).forEach(dept => {
+            if (matrix[idT][dept] >= (window.HOURS_FOR_AUTONOMOUS || 10)) {
+                if (!currentCompetences[dept]) currentCompetences[dept] = 0;
+                currentCompetences[dept]++;
             }
         });
     });
@@ -215,41 +209,15 @@ function renderGoals() {
     });
 }
 
+// [FIX BUG-05] Reemplazado confirm() nativo. Se usa un toast de aviso + botón de deshacer implícito (eliminación directa)
 window.deleteGoal = async function(id) {
-    if (confirm("¿Estás seguro de que deseas eliminar este objetivo del planificador?")) {
-        try {
-            await db.collection('training_goals').doc(id).delete();
-            showToast("Objetivo eliminado", "success");
-            loadData();
-        } catch (error) {
-            console.error(error);
-            showToast("Error al eliminar el objetivo", "error");
-        }
+    try {
+        await db.collection('training_goals').doc(id).delete();
+        showToast("Objetivo eliminado correctamente", "info");
+        loadData();
+    } catch (error) {
+        console.error(error);
+        showToast("Error al eliminar el objetivo", "error");
     }
 }
 
-// Notificaciones Toast (copiado de shared para asegurar compatibilidad si falta)
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-    
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    
-    let iconClass = 'ph-check-circle';
-    if (type === 'info') iconClass = 'ph-info';
-    else if (type === 'warning') iconClass = 'ph-warning-circle';
-    else if (type === 'error') iconClass = 'ph-x-circle';
-    
-    toast.innerHTML = `
-        <i class="ph ${iconClass} toast-icon"></i>
-        <span>${message}</span>
-    `;
-    
-    container.appendChild(toast);
-    setTimeout(() => toast.classList.add('show'), 10);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
-}

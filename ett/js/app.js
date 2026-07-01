@@ -34,6 +34,10 @@ async function loadFinancialData() {
         const HORAS_AUTONOMO = config.umbralAutonomia || 10;
         const TARIFA = config.tarifaETT || 18.0;
 
+        // [FIX BUG-11] Actualizar display de tarifa dinámicamente desde config global
+        const tarifaDisplay = document.getElementById('ett-tarifa-display');
+        if (tarifaDisplay) tarifaDisplay.textContent = `${TARIFA.toFixed(2)}€ / Hora`;
+
         // 1. Cargar Operarios
         const operariosSnap = await db.collection('operarios').get();
         const todosOperarios = [];
@@ -60,58 +64,57 @@ async function loadFinancialData() {
         }
 
         const fichajesSnap = await db.collection('fichajes').get();
-        const horasPorTrabajador = {}; // idT -> { operacion: horas }
+        const horasPorTrabajador = {}; // idT -> { departamento: horas }
 
         fichajesSnap.forEach(doc => {
             const f = doc.data();
             const idT = f.trabajador;
-            const op = f.operacion;
+            // [FIX BUG-01] Campo correcto: 'departamento' (antes era 'operacion' — campo que nunca se guardaba)
+            const dept = (f.departamento || '').trim();
             const h = parseFloat(f.tiempo) || 0;
             
-            // Fichajes en firebase (createdAt es un timestamp, o fecha es un string 'YYYY-MM-DD')
-            // Vamos a usar createdAt si existe para un filtrado preciso
+            // Filtrar por fecha según selector
             let recordTime = 0;
             if (f.createdAt && f.createdAt.toMillis) {
                 recordTime = f.createdAt.toMillis();
             } else if (f.fecha) {
                 recordTime = new Date(f.fecha).getTime();
             } else {
-                recordTime = now.getTime(); // Si no hay fecha, lo asumimos de siempre
+                recordTime = now.getTime();
             }
 
-            if (idT && op && recordTime >= cutoffTime) {
+            if (idT && dept && recordTime >= cutoffTime) {
                 if (!horasPorTrabajador[idT]) horasPorTrabajador[idT] = {};
-                if (!horasPorTrabajador[idT][op]) horasPorTrabajador[idT][op] = 0;
-                horasPorTrabajador[idT][op] += h;
+                if (!horasPorTrabajador[idT][dept]) horasPorTrabajador[idT][dept] = 0;
+                horasPorTrabajador[idT][dept] += h;
             }
         });
 
         // 3. Calcular Costes por ETT
         operariosETT = etts.map(ett => {
-            let totalHorasFormacion = 0; // Solo sumamos hasta 10h por operacion (fase aprendizaje)
+            let totalHorasFormacion = 0;
             let isLearning = false;
 
-            const horasOps = horasPorTrabajador[ett.idTrabajador] || {};
+            const horasDepts = horasPorTrabajador[ett.idTrabajador] || {};
             
-            // Evaluamos todas las operaciones posibles para ver si está en fase de aprendizaje
-            const todasOperaciones = ['MONTAJE MECÁNICO', 'MONTAJE ELÉCTRICO', 'MONTAJE HIDRÁULICO', 'REFRIGERACIÓN', 'TEST FINAL'];
+            // [FIX BUG-01] Iterar dinámicamente sobre los departamentos reales del trabajador
+            const depts = Object.keys(horasDepts);
             
-            todasOperaciones.forEach(op => {
-                const h = horasOps[op] || 0;
+            depts.forEach(dept => {
+                const h = horasDepts[dept] || 0;
                 
-                // Las horas que consideramos "coste de formación" (ineficiencia) son hasta las 10h.
-                // Si lleva más de 10h, las primeras 10h fueron "coste hundido de formación".
+                // Las horas que consideramos "coste de formación" son las primeras hasta el umbral de autonomía.
                 const horasComputables = Math.min(h, HORAS_AUTONOMO);
                 totalHorasFormacion += horasComputables;
 
-                // Si en alguna operación que está haciendo tiene menos de 10h, lo consideramos "en aprendizaje"
+                // Si en algún departamento tiene menos de 10h, está en aprendizaje
                 if (h > 0 && h < HORAS_AUTONOMO) {
                     isLearning = true;
                 }
             });
 
-            // Si no tiene horas de nada, también está en aprendizaje (no sabe nada)
-            if (Object.keys(horasOps).length === 0) {
+            // Si no tiene horas de nada, también está en aprendizaje
+            if (depts.length === 0) {
                 isLearning = true;
             }
 

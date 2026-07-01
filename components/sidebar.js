@@ -8,7 +8,7 @@ function renderSidebar() {
     // Detección de módulo actual para rutas y clase "active"
     if (path.includes('/polivalencia/')) { base = '../'; currentModule = 'polivalencia'; }
     else if (path.includes('/planificador/')) { base = '../'; currentModule = 'planificador'; }
-    else if (path.includes('/presencia/')) { base = '../'; currentModule = 'presencia'; }
+
     else if (path.includes('/ett/')) { base = '../'; currentModule = 'ett'; }
     else if (path.includes('/analytics/')) { base = '../'; currentModule = 'analytics'; }
     else if (path.includes('/configuracion/')) { base = '../'; currentModule = 'configuracion'; }
@@ -35,9 +35,6 @@ function renderSidebar() {
 
             <div class="nav-section" style="margin-top: 1.5rem;">
                 <span class="nav-group-title">GESTIÓN DE PERSONAL</span>
-                <a href="${base}presencia/presencia.html" class="nav-item ${currentModule === 'presencia' ? 'active' : ''}">
-                    <i class="ph ph-identification-card"></i> Control de Presencia
-                </a>
                 <a href="${base}ett/ett.html" class="nav-item ${currentModule === 'ett' ? 'active' : ''}">
                     <i class="ph ph-handshake"></i> Gestión ETT
                 </a>
@@ -78,6 +75,18 @@ function renderSidebar() {
         container.innerHTML = sidebarHTML;
         // Asignamos la clase sidebar al contenedor directamente para no romper el CSS actual
         container.className = 'sidebar';
+    }
+
+    // [FIX BUG-06] Leer sessionStorage para mostrar sección admin en cualquier módulo
+    const isAdmin = sessionStorage.getItem('stulz_admin') === '1'
+        || new URLSearchParams(window.location.search).get('admin') === '1';
+    
+    if (isAdmin) {
+        // Guardar en sessionStorage por si el usuario llegó por URL directa
+        sessionStorage.setItem('stulz_admin', '1');
+        document.querySelectorAll('.admin-only').forEach(el => {
+            el.style.display = '';
+        });
     }
 }
 

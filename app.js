@@ -25,64 +25,7 @@ function getShiftName() {
 
 // (updateClock movido a shared.js)
 
-// Notificaciones Toast Corporativas
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-    
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    
-    let iconClass = 'ph-check-circle';
-    if (type === 'info') iconClass = 'ph-info';
-    else if (type === 'warning') iconClass = 'ph-warning-circle';
-    else if (type === 'error') iconClass = 'ph-x-circle';
-    
-    toast.innerHTML = `
-        <i class="ph ${iconClass} toast-icon"></i>
-        <span>${message}</span>
-    `;
-    
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 10);
-    
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }, 4000);
-}
-
-// (updateDbStatus movido a shared.js)
-
-// Modal personalizado de eliminación de registros
-let modalResolveCallback = null;
-
-function showConfirmModal() {
-    const modal = document.getElementById('confirm-modal');
-    if (!modal) return Promise.resolve(false);
-    
-    modal.classList.add('show');
-    
-    return new Promise((resolve) => {
-        modalResolveCallback = resolve;
-    });
-}
-
-function closeConfirmModal(result) {
-    const modal = document.getElementById('confirm-modal');
-    if (modal) {
-        modal.classList.remove('show');
-    }
-    if (modalResolveCallback) {
-        modalResolveCallback(result);
-        modalResolveCallback = null;
-    }
-}
+// Notificaciones y Modales centralizados en shared.js
 
 // Inicializar la aplicación
 async function initApp() {
@@ -815,14 +758,16 @@ function setupHolidayModal() {
     });
 }
 
+// [FIX BUG-03] Reemplazado confirm() nativo por el modal corporativo showConfirmModal()
 window.deleteHoliday = async function(id) {
-    if(confirm("¿Seguro que quieres eliminar este festivo?")) {
+    const confirmed = await showConfirmModal();
+    if (confirmed) {
         try {
             await db.collection('festivos').doc(id).delete();
             showToast("Festivo eliminado", "info");
         } catch(e) {
             console.error(e);
-            showToast("Error al eliminar", "error");
+            showToast("Error al eliminar festivo", "error");
         }
     }
 }
@@ -883,21 +828,60 @@ function setupIluoModal() {
                     return;
                 }
                 
-                // La primera fila son las cabeceras (la primera celda suele estar vacía o ser "Máquina", el resto son operarios)
-                const headers = jsonData[0].map(h => String(h).trim());
-                const operarios = headers.slice(1);
+                // Encontrar la fila ancla ("Habilidades")
+                let anchorRowIndex = -1;
+                for (let i = 0; i < jsonData.length; i++) {
+                    const firstCell = String(jsonData[i][0]).trim().toLowerCase();
+                    if (firstCell.includes("habilidad")) {
+                        anchorRowIndex = i;
+                        break;
+                    }
+                }
+                
+                if (anchorRowIndex === -1) {
+                    showToast("No se encontró la celda 'Habilidades' en la primera columna.", "error");
+                    btnConfirmImport.disabled = false;
+                    btnConfirmImport.textContent = "Importar Datos";
+                    return;
+                }
+                
+                // Determinar qué fila tiene los nombres de los operarios (probamos H y H+1)
+                const rowH = jsonData[anchorRowIndex].map(c => String(c).trim());
+                const rowH1 = (anchorRowIndex + 1 < jsonData.length) ? jsonData[anchorRowIndex + 1].map(c => String(c).trim()) : [];
+                
+                let operariosRow = rowH;
+                let machinesStartIndex = anchorRowIndex + 1;
+                
+                // Contar cuántas celdas no vacías hay a partir de la columna 1
+                const countNonEmpty = (row) => row.slice(1).filter(c => c !== '').length;
+                
+                if (countNonEmpty(rowH1) > countNonEmpty(rowH)) {
+                    operariosRow = rowH1;
+                    machinesStartIndex = anchorRowIndex + 2; // Las máquinas empiezan debajo de los operarios
+                }
+                
+                const operarios = operariosRow.slice(1);
                 
                 let count = 0;
-                // Procesar desde la fila 2 (índice 1) en adelante (cada fila es una máquina)
-                for (let i = 1; i < jsonData.length; i++) {
+                // Procesar las filas de máquinas
+                for (let i = machinesStartIndex; i < jsonData.length; i++) {
                     const row = jsonData[i].map(c => String(c).trim());
-                    if (row.length < 2 || row[0] === '') continue; // Ignorar filas vacías
+                    if (row.length === 0) continue;
                     
                     const maquina = row[0];
+                    if (maquina === '') continue; // Ignorar filas vacías
+                    
+                    // Condición de parada (fin de la tabla ILUO)
+                    if (maquina.toLowerCase().includes("grado de formación") || maquina.toLowerCase().includes("total")) {
+                        break;
+                    }
+                    
                     for (let j = 1; j < row.length; j++) {
                         const operarioId = operarios[j-1];
-                        const nivel = parseInt(row[j], 10);
+                        const nivelRaw = row[j];
+                        const nivel = parseInt(nivelRaw, 10);
                         
+                        // Solo procesar si el operario no está vacío y el nivel es un número válido (1 al 4)
                         if (operarioId && operarioId !== '' && !isNaN(nivel) && nivel >= 1 && nivel <= 4) {
                             // Sanitizar docId para Firebase (sin barras ni espacios)
                             const sanitize = (str) => String(str).replace(/[\\s/\\\\.]+/g, '_');

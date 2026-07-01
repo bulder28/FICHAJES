@@ -3,8 +3,6 @@
 let ofBarChartInstance = null;
 let trainingPieChartInstance = null;
 
-const OPERATIONS = ['MONTAJE MECÁNICO', 'MONTAJE ELÉCTRICO', 'MONTAJE HIDRÁULICO', 'REFRIGERACIÓN', 'TEST FINAL'];
-
 document.addEventListener('DOMContentLoaded', async () => {
     // Iniciar reloj (shared.js) si existe
     if (typeof updateClock === 'function') {
@@ -41,28 +39,20 @@ async function loadGlobalTrainingData() {
         const fichajesSnap = await db.collection('fichajes').get();
         
         let totalGlobal = 0;
-        const horasPorOp = {
-            'MONTAJE MECÁNICO': 0,
-            'MONTAJE ELÉCTRICO': 0,
-            'MONTAJE HIDRÁULICO': 0,
-            'REFRIGERACIÓN': 0,
-            'TEST FINAL': 0
-        };
+        const horasPorDept = {};
 
         fichajesSnap.forEach(doc => {
             const data = doc.data();
-            const op = data.operacion;
+            const dept = data.departamento || 'Sin asignar';
             const h = parseFloat(data.tiempo) || 0;
             
-            if (op && horasPorOp[op] !== undefined) {
-                horasPorOp[op] += h;
-                totalGlobal += h;
-            }
+            horasPorDept[dept] = (horasPorDept[dept] || 0) + h;
+            totalGlobal += h;
         });
 
         // Actualizar UI
         document.getElementById('res-global-hours').textContent = totalGlobal.toFixed(1) + 'h';
-        renderTrainingPieChart(horasPorOp);
+        renderTrainingPieChart(horasPorDept);
         
         if (typeof updateDbStatus === 'function') updateDbStatus(true);
     } catch (e) {
@@ -70,27 +60,24 @@ async function loadGlobalTrainingData() {
     }
 }
 
-function renderTrainingPieChart(horasPorOp) {
+function renderTrainingPieChart(horasPorDept) {
     const ctx = document.getElementById('trainingPieChart').getContext('2d');
     
     if (trainingPieChartInstance) trainingPieChartInstance.destroy();
 
-    const dataValues = OPERATIONS.map(op => horasPorOp[op] || 0);
+    const labels = Object.keys(horasPorDept);
+    const dataValues = Object.values(horasPorDept);
     const backgroundColors = [
-        '#ef4444', // Red
-        '#f59e0b', // Yellow
-        '#10b981', // Green
-        '#3b82f6', // Blue
-        '#8b5cf6'  // Purple
+        '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6366f1', '#ec4899'
     ];
 
     trainingPieChartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: OPERATIONS,
+            labels: labels,
             datasets: [{
                 data: dataValues,
-                backgroundColor: backgroundColors,
+                backgroundColor: labels.map((_, i) => backgroundColors[i % backgroundColors.length]),
                 borderWidth: 2,
                 borderColor: '#ffffff'
             }]
@@ -144,30 +131,22 @@ async function searchOF(ofValue) {
         const resultsContainer = document.getElementById('of-results-container');
         
         if (snapshot.empty) {
-            alert(`No se han encontrado costes imputados para la OF: ${ofName}`);
+            if (typeof showToast === 'function') showToast(`No se encontraron registros para: ${ofName}`);
             emptyState.style.display = 'block';
             resultsContainer.style.display = 'none';
             return;
         }
 
         let totalOF = 0;
-        const horasPorOp = {
-            'MONTAJE MECÁNICO': 0,
-            'MONTAJE ELÉCTRICO': 0,
-            'MONTAJE HIDRÁULICO': 0,
-            'REFRIGERACIÓN': 0,
-            'TEST FINAL': 0
-        };
+        const horasPorDept = {};
 
         snapshot.forEach(doc => {
             const data = doc.data();
-            const op = data.operacion;
+            const dept = data.departamento || 'Sin asignar';
             const h = parseFloat(data.tiempo) || 0;
             
-            if (op && horasPorOp[op] !== undefined) {
-                horasPorOp[op] += h;
-                totalOF += h;
-            }
+            horasPorDept[dept] = (horasPorDept[dept] || 0) + h;
+            totalOF += h;
         });
 
         // Actualizar UI
@@ -177,28 +156,29 @@ async function searchOF(ofValue) {
         emptyState.style.display = 'none';
         resultsContainer.style.display = 'block';
         
-        renderOFBarChart(horasPorOp);
+        renderOFBarChart(horasPorDept);
 
     } catch (e) {
         console.error("Error buscando OF:", e);
-        alert("Ocurrió un error al buscar la Orden de Fabricación.");
+        if (typeof showToast === 'function') showToast("Ocurrió un error al buscar la OF.");
     } finally {
         inputEl.disabled = false;
         btnEl.textContent = "Buscar Costes";
     }
 }
 
-function renderOFBarChart(horasPorOp) {
+function renderOFBarChart(horasPorDept) {
     const ctx = document.getElementById('ofBarChart').getContext('2d');
     
     if (ofBarChartInstance) ofBarChartInstance.destroy();
 
-    const dataValues = OPERATIONS.map(op => horasPorOp[op] || 0);
+    const labels = Object.keys(horasPorDept);
+    const dataValues = Object.values(horasPorDept);
 
     ofBarChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: OPERATIONS,
+            labels: labels,
             datasets: [{
                 label: 'Horas Imputadas',
                 data: dataValues,

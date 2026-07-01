@@ -63,3 +63,82 @@ async function getGlobalConfig() {
     
     return cachedConfig;
 }
+
+// [FIX BUG-09] showToast centralizado en shared.js para todos los módulos
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    let iconClass = 'ph-check-circle';
+    if (type === 'info') iconClass = 'ph-info';
+    else if (type === 'warning') iconClass = 'ph-warning-circle';
+    else if (type === 'error') iconClass = 'ph-x-circle';
+    
+    toast.innerHTML = `
+        <i class="ph ${iconClass} toast-icon"></i>
+        <span>${message}</span>
+    `;
+    
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+// Modal personalizado de eliminación de registros (Inyección Dinámica)
+let modalResolveCallback = null;
+
+function ensureConfirmModalExists() {
+    if (!document.getElementById('confirm-modal')) {
+        const html = `
+        <div id="confirm-modal" class="modal-backdrop">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Confirmar Eliminación</h2>
+                </div>
+                <div class="modal-body">
+                    <p>¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.</p>
+                </div>
+                <div class="modal-footer">
+                    <button id="modal-btn-cancel-shared" class="btn-modal btn-modal-cancel">Cancelar</button>
+                    <button id="modal-btn-confirm-shared" class="btn-modal btn-modal-confirm">Sí, eliminar</button>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+        
+        document.getElementById('modal-btn-cancel-shared').addEventListener('click', () => closeConfirmModal(false));
+        document.getElementById('modal-btn-confirm-shared').addEventListener('click', () => closeConfirmModal(true));
+    }
+}
+
+function showConfirmModal() {
+    ensureConfirmModalExists();
+    const modal = document.getElementById('confirm-modal');
+    modal.classList.add('show');
+    
+    return new Promise((resolve) => {
+        modalResolveCallback = resolve;
+    });
+}
+
+function closeConfirmModal(result) {
+    const modal = document.getElementById('confirm-modal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+    if (modalResolveCallback) {
+        modalResolveCallback(result);
+        modalResolveCallback = null;
+    }
+}

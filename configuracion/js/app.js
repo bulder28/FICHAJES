@@ -37,7 +37,7 @@ async function loadData() {
         if (typeof updateDbStatus === 'function') updateDbStatus(true);
     } catch (e) {
         console.error("Error cargando configuración:", e);
-        alert("Error crítico conectando a la base de datos.");
+        showToast("Error crítico conectando a la base de datos.", "error");
     }
 }
 
@@ -77,7 +77,7 @@ async function saveConfig(type) {
         
         if (type === 'tarifa') {
             const val = parseFloat(document.getElementById('config-tarifa').value);
-            if (isNaN(val) || val <= 0) return alert("Por favor, introduce una tarifa válida mayor que 0.");
+            if (isNaN(val) || val <= 0) return showToast("Por favor, introduce una tarifa válida mayor que 0.", "warning");
             updates.tarifaETT = val;
         } 
         else if (type === 'planta') {
@@ -85,7 +85,7 @@ async function saveConfig(type) {
             const umbral = parseFloat(document.getElementById('config-umbral').value);
             
             if (isNaN(maxH) || maxH <= 0 || isNaN(umbral) || umbral <= 0) {
-                return alert("Las horas deben ser valores numéricos positivos.");
+                return showToast("Las horas deben ser valores numéricos positivos.", "warning");
             }
             updates.maxHorasFichaje = maxH;
             updates.umbralAutonomia = umbral;
@@ -94,11 +94,11 @@ async function saveConfig(type) {
         // Merge actualiza solo los campos enviados
         await db.collection('config').doc('global').set(updates, { merge: true });
         
-        alert("¡Configuración guardada con éxito!");
+        showToast("¡Configuración guardada con éxito!", "success");
         
     } catch (e) {
         console.error("Error guardando config:", e);
-        alert("Fallo al guardar la configuración.");
+        showToast("Fallo al guardar la configuración.", "error");
     }
 }
 
@@ -212,7 +212,7 @@ async function handleWorkerSubmit(e) {
     const agencia = isEtt ? document.getElementById('worker-agencia').value : null;
 
     if (!idTrabajador || !nombre) {
-        alert("El ID y el Nombre son obligatorios.");
+        showToast("El ID y el Nombre son obligatorios.", "warning");
         return;
     }
 
@@ -237,22 +237,27 @@ async function handleWorkerSubmit(e) {
         await loadWorkers(); // Recargar tabla
         
         // Poka-Yoke Visual QA
-        alert(`Operario ${nombre} guardado correctamente.`);
+        showToast(`Operario ${nombre} guardado correctamente.`, "success");
         
     } catch (e) {
         console.error("Error guardando operario:", e);
-        alert("Fallo al guardar en la base de datos.");
+        showToast("Fallo al guardar en la base de datos.", "error");
     }
 }
 
 async function deleteWorker(docId, nombre) {
-    if (confirm(`⚠️ CUIDADO: ¿Estás seguro de que quieres eliminar al operario ${nombre}?\n\nEsta acción no se puede deshacer y podría afectar a los historiales de fichajes pasados.`)) {
+    // Usamos modal corporativo para evitar el warning pero mantenemos lógica
+    // Nota: Como no podemos inyectar dinámicamente texto en el shared modal actual fácilmente,
+    // usaremos el modal estándar que pregunta "¿Estás seguro...?"
+    const confirmed = await showConfirmModal();
+    if (confirmed) {
         try {
             await db.collection('operarios').doc(docId).delete();
+            showToast(`Operario ${nombre} eliminado.`, "info");
             await loadWorkers(); // Recargar
         } catch (e) {
             console.error("Error borrando:", e);
-            alert("No se pudo eliminar el operario.");
+            showToast("No se pudo eliminar el operario.", "error");
         }
     }
 }
