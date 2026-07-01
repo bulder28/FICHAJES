@@ -14,6 +14,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// POKA-YOKE: Forzar Long Polling para evitar bloqueos CORS por proxies corporativos (Stulz)
+db.settings({
+    experimentalForceLongPolling: true,
+    useFetchStreams: false
+});
+
 // Actualización en tiempo real del reloj
 function updateClock() {
     const clockElement = document.getElementById('clock-time');

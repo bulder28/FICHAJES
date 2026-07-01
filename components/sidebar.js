@@ -22,7 +22,7 @@ function renderSidebar() {
         <nav class="sidebar-nav">
             <div class="nav-section">
                 <span class="nav-group-title">FORMACIÓN & CAPACITACIÓN</span>
-                <a href="${base}produccion.html" class="nav-item ${currentModule === 'registro' ? 'active' : ''}">
+                <a href="${base}index.html" class="nav-item ${currentModule === 'registro' ? 'active' : ''}">
                     <i class="ph ph-clipboard-text"></i> Registro Formación
                 </a>
                 <a href="${base}planificador/planificador.html" class="nav-item ${currentModule === 'planificador' ? 'active' : ''}">

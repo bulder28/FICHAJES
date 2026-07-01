@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migración de Operarios · STULZ Fichajes</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --panel-2: #263449;
+            --border: #334155;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --red: #e2001a;
+            --green: #22c55e;
+            --amber: #f59e0b;
+            --blue: #3b82f6;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 2rem 1rem;
+            line-height: 1.5;
+        }
+        .wrap { max-width: 820px; margin: 0 auto; }
+        header {
+            display: flex; align-items: center; gap: 0.75rem;
+            border-bottom: 2px solid var(--red);
+            padding-bottom: 1rem; margin-bottom: 1.5rem;
+        }
+        header .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--red); }
+        h1 { font-size: 1.25rem; margin: 0; letter-spacing: 0.5px; }
+        h1 small { display: block; font-weight: 400; font-size: 0.8rem; color: var(--text-dim); letter-spacing: 0; }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+        .card h2 { font-size: 0.95rem; margin: 0 0 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .status-line { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+        .status-line .num { font-size: 1.5rem; font-weight: 700; }
+        .btn {
+            border: none; border-radius: 8px; padding: 0.7rem 1.1rem;
+            font-size: 0.9rem; font-weight: 600; cursor: pointer;
+            transition: filter 0.15s; color: #fff; margin: 0.25rem 0.25rem 0.25rem 0;
+        }
+        .btn:hover:not(:disabled) { filter: brightness(1.12); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-red { background: var(--red); }
+        .btn-green { background: var(--green); }
+        .btn-blue { background: var(--blue); }
+        .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        input[type=file] {
+            width: 100%; padding: 0.6rem; background: var(--panel-2);
+            border: 1px dashed var(--border); border-radius: 8px; color: var(--text);
+            margin-bottom: 0.75rem;
+        }
+        .step-hint { font-size: 0.85rem; color: var(--text-dim); margin: 0 0 0.75rem; }
+        #log {
+            background: #0b1220; border: 1px solid var(--border); border-radius: 8px;
+            font-family: 'Consolas', monospace; font-size: 0.82rem;
+            padding: 0.9rem; height: 300px; overflow-y: auto; white-space: pre-wrap;
+        }
+        .log-line { margin: 0 0 0.25rem; }
+        .log-info { color: var(--text); }
+        .log-ok { color: var(--green); }
+        .log-warn { color: var(--amber); }
+        .log-err { color: #f87171; }
+        .log-muted { color: var(--text-dim); }
+        .warn-box {
+            background: rgba(245, 158, 11, 0.1); border: 1px solid var(--amber);
+            border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.85rem; margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <span class="dot"></span>
+        <h1>Migración de Operarios
+            <small>Borra la plantilla actual y reimporta desde el Excel de líneas/ETT</small>
+        </h1>
+    </header>
+
+    <div class="warn-box">
+        Esta herramienta escribe directamente en Firestore (colección <b>operarios</b>).
+        Úsala una sola vez para dejar la plantilla limpia. No afecta a fichajes, matrices ni scores.
+    </div>
+
+    <div class="card">
+        <h2>1 · Estado actual</h2>
+        <div class="status-line">
+            <span class="num" id="count">—</span>
+            <span id="count-label">operarios en Firestore</span>
+        </div>
+        <div style="margin-top: 0.75rem;">
+            <button class="btn btn-ghost" id="btn-refresh">Actualizar recuento</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>2 · Borrar plantilla actual</h2>
+        <p class="step-hint">Elimina todos los documentos de la colección <b>operarios</b>. Requiere confirmación.</p>
+        <button class="btn btn-red" id="btn-delete" disabled>Borrar todos los operarios</button>
+    </div>
+
+    <div class="card">
+        <h2>3 · Reimportar desde Excel</h2>
+        <p class="step-hint">Sube <b>Operarios_Lineas_ETT_*.xlsx</b>. Lee las hojas «Personal fabrica» (IDs 00XXX) y «ETT» (Aura 04XXX / EuroFirms 06XXX).</p>
+        <input type="file" id="file" accept=".xlsx,.xls">
+        <button class="btn btn-green" id="btn-import" disabled>Importar operarios</button>
+    </div>
+
+    <div class="card">
+        <h2>Registro</h2>
+        <div id="log"><span class="log-muted">Esperando acciones…</span></div>
+    </div>
+</div>
+
+<!-- Firebase + SheetJS -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script>
+// --- Config Firebase (misma que shared.js) ---
+const firebaseConfig = {
+    apiKey: "AIzaSyCyDAOSXzvQkBiOiCpLdqqwPxqphhR7e94",
+    authDomain: "fichajes-formaci.firebaseapp.com",
+    projectId: "fichajes-formaci",
+    storageBucket: "fichajes-formaci.firebasestorage.app",
+    messagingSenderId: "799065210074",
+    appId: "1:799065210074:web:a5a08917a983364fdfb9e3"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// --- Logging en pantalla ---
+const logEl = document.getElementById('log');
+let logStarted = false;
+function log(msg, cls = 'info') {
+    if (!logStarted) { logEl.innerHTML = ''; logStarted = true; }
+    const line = document.createElement('div');
+    line.className = 'log-line log-' + cls;
+    const time = new Date().toLocaleTimeString();
+    line.textContent = `[${time}] ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+// --- Recuento ---
+const countEl = document.getElementById('count');
+const btnDelete = document.getElementById('btn-delete');
+const btnImport = document.getElementById('btn-import');
+const btnRefresh = document.getElementById('btn-refresh');
+const fileInput = document.getElementById('file');
+
+async function refreshCount() {
+    countEl.textContent = '…';
+    try {
+        const snap = await db.collection('operarios').get();
+        countEl.textContent = snap.size;
+        btnDelete.disabled = snap.size === 0;
+        log(`Recuento: ${snap.size} operarios en Firestore.`, 'muted');
+        return snap.size;
+    } catch (e) {
+        countEl.textContent = '!';
+        log('Error leyendo Firestore: ' + e.message, 'err');
+        log('Comprueba que las reglas permiten lectura (allow read: if true).', 'warn');
+    }
+}
+
+btnRefresh.addEventListener('click', refreshCount);
+
+// --- Borrado ---
+btnDelete.addEventListener('click', async () => {
+    if (!confirm('¿Seguro que quieres BORRAR todos los operarios? Esta acción no se puede deshacer.')) return;
+    btnDelete.disabled = true;
+    try {
+        log('Leyendo documentos a borrar…', 'info');
+        const snap = await db.collection('operarios').get();
+        log(`Borrando ${snap.size} documentos…`, 'info');
+        let deleted = 0;
+        const docs = snap.docs;
+        const BATCH = 400;
+        for (let i = 0; i < docs.length; i += BATCH) {
+            const batch = db.batch();
+            docs.slice(i, i + BATCH).forEach(d => batch.delete(d.ref));
+            await batch.commit();
+            deleted += Math.min(BATCH, docs.length - i);
+            log(`  · ${deleted}/${docs.length} borrados`, 'muted');
+        }
+        log(`✓ ${deleted} operarios borrados.`, 'ok');
+    } catch (e) {
+        log('Error borrando: ' + e.message, 'err');
+        if (e.code === 'permission-denied') log('Firestore rechazó el borrado (reglas). Revisa allow delete.', 'warn');
+    }
+    await refreshCount();
+});
+
+// ====================================================
+// Parser del Excel (mismo criterio que configuracion/js)
+// ====================================================
+function normalizeName(name) {
+    if (!name) return '';
+    return name.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ');
+}
+function toTitleCase(str) {
+    return (str || '').toLowerCase().split(' ').filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+function buildIdCounters(dbOperarios) {
+    const counters = { '00': 0, '04': 0, '06': 0 };
+    dbOperarios.forEach(w => {
+        const id = w.idTrabajador || w.id_doc || '';
+        if (/^\d{5}$/.test(id)) {
+            const prefix = id.slice(0, 2);
+            const suffix = parseInt(id.slice(2), 10);
+            if (counters[prefix] !== undefined && suffix > counters[prefix]) counters[prefix] = suffix;
+        }
+    });
+    return counters;
+}
+function nextId(counters, prefix) {
+    counters[prefix] = (counters[prefix] || 0) + 1;
+    return prefix + String(counters[prefix]).padStart(3, '0');
+}
+function cellVal(ws, r, c) {
+    const addr = XLSX.utils.encode_cell({ r, c });
+    const cell = ws[addr];
+    if (!cell) return '';
+    return String(cell.v !== undefined ? cell.v : '').trim();
+}
+function parseWorkbook(workbook, dbOperarios) {
+    const registros = [];
+    const counters = buildIdCounters(dbOperarios);
+    const nameMap = {};
+    dbOperarios.forEach(w => { const k = normalizeName(w.nombre); if (k) nameMap[k] = w; });
+
+    // HOJA "Personal fabrica" -> STULZ (00XXX)
+    if (workbook.SheetNames.includes('Personal fabrica')) {
+        const ws = workbook.Sheets['Personal fabrica'];
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+        let headerRow = -1, nameCol = -1;
+        for (let r = 0; r <= Math.min(10, range.e.r) && headerRow === -1; r++) {
+            for (let c = 0; c <= range.e.c; c++) {
+                if (cellVal(ws, r, c).toUpperCase() === 'NOMBRE') { headerRow = r; nameCol = c; break; }
+            }
+        }
+        if (headerRow !== -1) {
+            const deptCol = nameCol + 1, checkCol = nameCol + 2, turnoCol = nameCol + 3, lineaCol = nameCol + 4;
+            let n = 0;
+            for (let r = headerRow + 1; r <= range.e.r; r++) {
+                const nombre = cellVal(ws, r, nameCol);
+                if (!nombre) continue;
+                const check = cellVal(ws, r, checkCol);
+                if (check && !check.toUpperCase().includes('OK')) continue;
+                const departamento = cellVal(ws, r, deptCol);
+                const turno = cellVal(ws, r, turnoCol);
+                const linea = cellVal(ws, r, lineaCol);
+                const key = normalizeName(nombre);
+                const existing = nameMap[key];
+                const docId = existing ? (existing.idTrabajador || existing.id_doc) : nextId(counters, '00');
+                registros.push({ docId, payload: {
+                    idTrabajador: docId, nombre, isETT: false, agencia: null,
+                    seccionBase: departamento ? departamento.toUpperCase() : '',
+                    seccionAsignada: departamento || 'Producción',
+                    lineaBase: linea ? linea.toUpperCase() : '',
+                    turnoBase: turno || '', tipo: 'STULZ',
+                    createdAt: Date.now(), updatedAt: new Date().toISOString()
+                }});
+                if (!existing) nameMap[key] = { idTrabajador: docId };
+                n++;
+            }
+            log(`Hoja "Personal fabrica": ${n} operarios leídos.`, 'muted');
+        } else {
+            log('Hoja "Personal fabrica": no se encontró la cabecera "Nombre".', 'warn');
+        }
+    } else {
+        log('No hay hoja "Personal fabrica" en el archivo.', 'warn');
+    }
+
+    // HOJA "ETT" -> Aura (04XXX) / EuroFirms (06XXX)
+    if (workbook.SheetNames.includes('ETT')) {
+        const ws = workbook.Sheets['ETT'];
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+        const EMP = 1, EMPR = 2, SEC = 4, LIN = 6, TUR = 9;
+        let n = 0, bajas = 0;
+        for (let r = 1; r <= range.e.r; r++) {
+            const raw = cellVal(ws, r, EMP);
+            if (!raw) continue;
+            let nombre;
+            if (raw.includes(',')) {
+                const p = raw.split(',');
+                nombre = toTitleCase(`${p.slice(1).join(',').trim()} ${p[0].trim()}`);
+            } else nombre = toTitleCase(raw);
+
+            let esBaja = false;
+            for (let c = 0; c <= range.e.c; c++) {
+                const v = cellVal(ws, r, c).toUpperCase();
+                if (v.includes('BAJA') || v.includes('NO INCORPORADO')) { esBaja = true; break; }
+            }
+            if (esBaja) { bajas++; continue; }
+
+            const empresa = cellVal(ws, r, EMPR).toUpperCase();
+            let agencia = 'OTRA', prefix = '06';
+            if (empresa.includes('AURA')) { agencia = 'AURA'; prefix = '04'; }
+            else if (empresa.includes('EURO')) { agencia = 'EUROFIRMS'; prefix = '06'; }
+
+            const key = normalizeName(nombre);
+            const existing = nameMap[key];
+            const docId = existing ? (existing.idTrabajador || existing.id_doc) : nextId(counters, prefix);
+            registros.push({ docId, payload: {
+                idTrabajador: docId, nombre, isETT: true, agencia,
+                seccionBase: cellVal(ws, r, SEC).toUpperCase(),
+                seccionAsignada: cellVal(ws, r, SEC) || 'Producción',
+                lineaBase: cellVal(ws, r, LIN).toUpperCase(),
+                turnoBase: cellVal(ws, r, TUR) || '', tipo: 'ETT',
+                createdAt: Date.now(), updatedAt: new Date().toISOString()
+            }});
+            if (!existing) nameMap[key] = { idTrabajador: docId };
+            n++;
+        }
+        log(`Hoja "ETT": ${n} operarios leídos (${bajas} bajas/no incorporados omitidos).`, 'muted');
+    } else {
+        log('No hay hoja "ETT" en el archivo.', 'warn');
+    }
+
+    // Deduplicar por docId
+    const porId = {};
+    registros.forEach(reg => { porId[reg.docId] = reg; });
+    return Object.values(porId);
+}
+
+// --- Importación ---
+fileInput.addEventListener('change', () => { btnImport.disabled = !fileInput.files.length; });
+
+btnImport.addEventListener('click', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    btnImport.disabled = true;
+    log(`Leyendo ${file.name}…`, 'info');
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        try {
+            const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+            log('Hojas detectadas: ' + wb.SheetNames.join(', '), 'muted');
+
+            const snap = await db.collection('operarios').get();
+            const dbOperarios = snap.docs.map(d => ({ id_doc: d.id, ...d.data() }));
+
+            const registros = parseWorkbook(wb, dbOperarios);
+            if (registros.length === 0) {
+                log('No se generó ningún operario. Revisa que el Excel tenga las hojas "Personal fabrica" / "ETT".', 'err');
+                btnImport.disabled = false;
+                return;
+            }
+            log(`Total a escribir: ${registros.length} operarios. Subiendo a Firestore…`, 'info');
+
+            let written = 0;
+            const BATCH = 400;
+            for (let i = 0; i < registros.length; i += BATCH) {
+                const batch = db.batch();
+                registros.slice(i, i + BATCH).forEach(reg => {
+                    batch.set(db.collection('operarios').doc(reg.docId), reg.payload, { merge: true });
+                });
+                await batch.commit();
+                written += Math.min(BATCH, registros.length - i);
+                log(`  · ${written}/${registros.length} escritos`, 'muted');
+            }
+
+            const stulz = registros.filter(r => r.docId.startsWith('00')).length;
+            const aura = registros.filter(r => r.docId.startsWith('04')).length;
+            const euro = registros.filter(r => r.docId.startsWith('06')).length;
+            log(`✓ Importación completa: ${written} operarios.`, 'ok');
+            log(`  STULZ (00XXX): ${stulz} · Aura (04XXX): ${aura} · EuroFirms/otras (06XXX): ${euro}`, 'ok');
+        } catch (e) {
+            log('Error importando: ' + e.message, 'err');
+            if (e.code === 'permission-denied') {
+                log('Firestore RECHAZÓ la escritura (permission-denied).', 'err');
+                log('→ Publica las reglas nuevas en Firebase Console (Firestore → Reglas → Publicar).', 'warn');
+            }
+        } finally {
+            await refreshCount();
+        }
+    };
+    reader.onerror = () => { log('Error leyendo el archivo local.', 'err'); btnImport.disabled = false; };
+    reader.readAsArrayBuffer(file);
+});
+
+// Init
+refreshCount();
+</script>
+</body>
+</html>

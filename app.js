@@ -62,10 +62,14 @@ async function initApp() {
         ];
         
         // [FIX ARQUITECTO] Usar for...of en lugar de forEach(async) para garantizar escrituras ordenadas
-        for (const h of holidays2026) {
-            await db.collection('festivos').add({ fecha: h.fecha, motivo: h.motivo, createdAt: Date.now() });
+        try {
+            for (const h of holidays2026) {
+                await db.collection('festivos').add({ fecha: h.fecha, motivo: h.motivo, createdAt: Date.now() });
+            }
+            localStorage.setItem('calendario2026_importado', 'true');
+        } catch (e) {
+            console.error("Error al importar festivos automáticamente:", e);
         }
-        localStorage.setItem('calendario2026_importado', 'true');
         showToast("Calendario Laboral 2026 importado automáticamente", "success");
     }
 
@@ -267,6 +271,11 @@ function setupWorkerModal() {
     btnConfirm.addEventListener('click', async () => {
         const nombre = nameInput.value.trim().toUpperCase();
         let idTrabajador = idInput.value.trim().toUpperCase();
+        
+        // Auto-completar ID de empresa
+        if (/^\d{3}$/.test(idTrabajador)) {
+            idTrabajador = "00" + idTrabajador;
+        }
         
         if (nombre.length < 3) {
             showToast("Introduce el nombre y apellido completo del operario", "warning");
@@ -650,6 +659,9 @@ function attachEventListenersToRow(tr, id) {
             
             if (field === 'trabajador') {
                 val = val.trim().toUpperCase();
+                if (/^\d{3}$/.test(val)) {
+                    val = "00" + val;
+                }
                 e.target.value = val;
             } else if (field === 'of') {
                 val = val.trim();

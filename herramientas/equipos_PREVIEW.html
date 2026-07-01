@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vestuarios · STULZ Fichajes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Archivo:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b14; --bg2:#0d1424; --panel:#131c30; --panel-line:#22304d;
+  --ink:#eaf1ff; --ink-dim:#8da0c4;
+  --red:#e2001a; --gold:#e8c44d; --silver:#c8d2e0; --bronze:#c8895a;
+  --special:#12d6a0; --pitch:#0c3b25;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 600px at 50% -10%, #16223d 0%, var(--bg) 60%);
+  color:var(--ink); font-family:'Archivo',system-ui,sans-serif; min-height:100vh;
+}
+.top{
+  display:flex;align-items:center;gap:1rem;padding:1rem 1.5rem;
+  border-bottom:1px solid var(--panel-line);position:sticky;top:0;z-index:20;
+  background:rgba(7,11,20,.85);backdrop-filter:blur(10px);
+}
+.brand{font-family:'Rajdhani';font-weight:700;font-size:1.3rem;letter-spacing:2px;display:flex;align-items:center;gap:.5rem}
+.brand .sq{width:14px;height:14px;background:var(--red);transform:rotate(45deg)}
+.brand small{color:var(--ink-dim);font-weight:500;font-size:.7rem;letter-spacing:3px}
+.status{margin-left:auto;font-family:'Rajdhani';font-size:.85rem;color:var(--ink-dim)}
+.status b{color:var(--special)}
+
+/* Selector de equipos */
+.teams-bar{display:flex;gap:.4rem;overflow-x:auto;padding:1rem 1.5rem;flex-wrap:wrap}
+.team-pill{
+  font-family:'Rajdhani';font-weight:600;font-size:.9rem;letter-spacing:1px;
+  padding:.5rem .9rem;border:1px solid var(--panel-line);border-radius:999px;
+  background:var(--panel);color:var(--ink-dim);cursor:pointer;white-space:nowrap;
+  transition:.15s;display:flex;align-items:center;gap:.45rem
+}
+.team-pill:hover{border-color:var(--red);color:var(--ink)}
+.team-pill.active{background:var(--red);color:#fff;border-color:var(--red)}
+.team-pill .cnt{font-size:.72rem;opacity:.8;background:rgba(255,255,255,.15);padding:.05rem .4rem;border-radius:999px}
+.team-pill.morning::before{content:"☀";}
+.team-pill.evening::before{content:"☾";}
+.team-pill.box::before{content:"■";color:var(--gold)}
+
+.wrap{padding:0 1.5rem 3rem;max-width:1400px;margin:0 auto}
+
+/* Cabecera del vestuario */
+.locker-head{
+  display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;
+  padding:1.25rem 1.5rem;margin:.5rem 0 1.5rem;border-radius:16px;
+  background:linear-gradient(120deg,var(--panel) 0%,var(--bg2) 100%);
+  border:1px solid var(--panel-line);position:relative;overflow:hidden
+}
+.locker-head::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;
+  background:radial-gradient(circle,rgba(226,0,26,.15),transparent 70%)}
+.locker-title{font-family:'Rajdhani';font-weight:700;font-size:2rem;letter-spacing:1px;line-height:1}
+.locker-title span{color:var(--ink-dim);font-size:1rem;display:block;letter-spacing:3px}
+.team-ovr{
+  margin-left:auto;text-align:center;font-family:'Rajdhani';z-index:1
+}
+.team-ovr .n{font-size:2.6rem;font-weight:700;line-height:1;color:var(--gold)}
+.team-ovr .l{font-size:.7rem;letter-spacing:2px;color:var(--ink-dim)}
+.kpi-row{display:flex;gap:.75rem;flex-wrap:wrap;z-index:1}
+.kpi{background:rgba(0,0,0,.25);border:1px solid var(--panel-line);border-radius:10px;padding:.5rem .85rem;min-width:92px}
+.kpi .v{font-family:'Rajdhani';font-weight:700;font-size:1.4rem;line-height:1}
+.kpi .k{font-size:.62rem;letter-spacing:1.5px;color:var(--ink-dim);text-transform:uppercase}
+
+/* Grid de cartas */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem}
+.card{
+  position:relative;aspect-ratio:180/250;border-radius:14px;cursor:pointer;
+  padding:1rem .9rem;display:flex;flex-direction:column;
+  transition:transform .18s,box-shadow .18s;overflow:hidden;
+  border:1px solid rgba(255,255,255,.08)
+}
+.card:hover{transform:translateY(-6px) scale(1.02);box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.card.gold{background:linear-gradient(160deg,#3a2f08,#a8892a 45%,#f0d874 100%);color:#241c02}
+.card.silver{background:linear-gradient(160deg,#33404f,#8a97a8 45%,#dfe8f2 100%);color:#1a2230}
+.card.bronze{background:linear-gradient(160deg,#3a2414,#8a5a34 45%,#d29868 100%);color:#241205}
+.card.special{background:linear-gradient(160deg,#04140f,#0a3d2d 40%,#12d6a0 110%);color:#eafff8;border-color:#12d6a0}
+.card .c-top{display:flex;justify-content:space-between;align-items:flex-start}
+.card .ovr{font-family:'Rajdhani';font-weight:700;font-size:2.4rem;line-height:.9}
+.card .pos{font-family:'Rajdhani';font-weight:600;font-size:.9rem;letter-spacing:1px;opacity:.85;margin-top:.15rem}
+.card .agency{font-family:'Rajdhani';font-weight:700;font-size:.7rem;letter-spacing:1px;text-align:right;opacity:.85}
+.card .photo{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  font-family:'Rajdhani';font-weight:700;font-size:2.6rem;opacity:.35
+}
+.card .name{
+  font-family:'Rajdhani';font-weight:700;font-size:1.05rem;letter-spacing:.5px;
+  text-align:center;text-transform:uppercase;border-top:1px solid rgba(0,0,0,.25);
+  padding-top:.5rem;line-height:1.05;min-height:2.4em;display:flex;align-items:center;justify-content:center
+}
+.card .stats{display:grid;grid-template-columns:1fr 1fr;gap:.1rem .8rem;font-family:'Rajdhani';font-weight:600;font-size:.78rem;padding-top:.4rem}
+.card .stats span{display:flex;justify-content:space-between}
+.card .stats b{font-weight:700}
+.card .id-tag{position:absolute;bottom:.5rem;left:0;right:0;text-align:center;font-family:'Rajdhani';font-size:.6rem;letter-spacing:2px;opacity:.5}
+
+/* Modal detalle */
+.modal{position:fixed;inset:0;background:rgba(3,6,12,.8);backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;z-index:50;padding:1.5rem}
+.modal.open{display:flex}
+.sheet{background:var(--panel);border:1px solid var(--panel-line);border-radius:18px;
+  max-width:560px;width:100%;padding:1.5rem;position:relative;max-height:90vh;overflow-y:auto}
+.sheet h3{font-family:'Rajdhani';font-size:1.6rem;letter-spacing:1px}
+.sheet .sub{color:var(--ink-dim);font-family:'Rajdhani';letter-spacing:2px;font-size:.8rem;margin-bottom:1rem}
+.close{position:absolute;top:1rem;right:1.2rem;font-size:1.4rem;cursor:pointer;color:var(--ink-dim)}
+.bars{display:flex;flex-direction:column;gap:.7rem;margin-top:1rem}
+.bar-row{display:flex;align-items:center;gap:.75rem}
+.bar-row .lab{font-family:'Rajdhani';font-weight:600;width:130px;font-size:.85rem;letter-spacing:1px}
+.bar-track{flex:1;height:9px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}
+.bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--red),var(--gold))}
+.bar-row .val{font-family:'Rajdhani';font-weight:700;width:34px;text-align:right}
+
+.empty{text-align:center;padding:4rem 1rem;color:var(--ink-dim);font-family:'Rajdhani';font-size:1.1rem;letter-spacing:1px}
+.loading{text-align:center;padding:4rem;color:var(--ink-dim);font-family:'Rajdhani';letter-spacing:2px}
+.legend{display:flex;gap:1rem;flex-wrap:wrap;font-family:'Rajdhani';font-size:.75rem;color:var(--ink-dim);margin-top:1rem;letter-spacing:1px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block;margin-right:.35rem;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><span class="sq"></span> VESTUARIOS <small>STULZ · TECNIVEL</small></div>
+  <div class="status" id="status">Conectando…</div>
+</div>
+
+<div class="teams-bar" id="teams-bar"></div>
+
+<div class="wrap">
+  <div id="locker"></div>
+</div>
+
+<!-- Modal detalle jugador -->
+<div class="modal" id="modal">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey:"AIzaSyCyDAOSXzvQkBiOiCpLdqqwPxqphhR7e94",
+  authDomain:"fichajes-formaci.firebaseapp.com",
+  projectId:"fichajes-formaci",
+  storageBucket:"fichajes-formaci.firebasestorage.app",
+  messagingSenderId:"799065210074",
+  appId:"1:799065210074:web:a5a08917a983364fdfb9e3"
+};
+/* preview: sin firebase */
+const db = null;
+const MOCK_DATA=[{"id_doc": "00001", "idTrabajador": "00001", "nombre": "Angel Pascual Higueras", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00002", "idTrabajador": "00002", "nombre": "José Antonio Pichardo Espina", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00003", "idTrabajador": "00003", "nombre": "Alberto Rodriguez Rodriguez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00004", "idTrabajador": "00004", "nombre": "David Fernandez Marina", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00005", "idTrabajador": "00005", "nombre": "Juan Mauricio Vicente Martin", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00006", "idTrabajador": "00006", "nombre": "Rafael Baños", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00007", "idTrabajador": "00007", "nombre": "Samuel Dorado Ubeda", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00008", "idTrabajador": "00008", "nombre": "Maria Jesus Perales Cervera", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00009", "idTrabajador": "00009", "nombre": "Moises Rodriguez Del Barrio", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00010", "idTrabajador": "00010", "nombre": "Juan Felix Saez Vara", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00011", "idTrabajador": "00011", "nombre": "Carlos García", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00012", "idTrabajador": "00012", "nombre": "Mateo Jimenez Jurado", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00013", "idTrabajador": "00013", "nombre": "Ivan Sanchez Carmena", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00014", "idTrabajador": "00014", "nombre": "Cesar Antonio Aparicio Leon", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00015", "idTrabajador": "00015", "nombre": "Javier Blanco", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00016", "idTrabajador": "00016", "nombre": "Raul Puebla Espinosa", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00017", "idTrabajador": "00017", "nombre": "Raul Valentin Cerdeño", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN EXCEDENCIA", "seccionAsignada": "Producción EXCEDENCIA", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00018", "idTrabajador": "00018", "nombre": "Sandra Mateo Garcia", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "00019", "idTrabajador": "00019", "nombre": "Tarik Ouhabi", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "00020", "idTrabajador": "00020", "nombre": "Antonio Alfredo Romero", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "00021", "idTrabajador": "00021", "nombre": "Francisco M. De Los Santos Marquez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "00022", "idTrabajador": "00022", "nombre": "Ismael Blanco Martin", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "00023", "idTrabajador": "00023", "nombre": "José Jaime Bentacourt Cardona", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "00024", "idTrabajador": "00024", "nombre": "Luis Moreno Arenas", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "BOX1", "turnoBase": "T2"}, {"id_doc": "00025", "idTrabajador": "00025", "nombre": "Luis Bellon Hernandez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "BOX1", "turnoBase": "T2"}, {"id_doc": "00026", "idTrabajador": "00026", "nombre": "Marcos Monroy Prieto", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN ", "seccionAsignada": "Producción ", "lineaBase": "BOX1", "turnoBase": "T2"}, {"id_doc": "00027", "idTrabajador": "00027", "nombre": "PINTO, FÉLIX", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN ", "seccionAsignada": "Producción ", "lineaBase": "BOX1", "turnoBase": "T2"}, {"id_doc": "00028", "idTrabajador": "00028", "nombre": "SÁNCHEZ TORREJÓN, AARÓN", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN ", "seccionAsignada": "Producción ", "lineaBase": "BOX1", "turnoBase": "T2"}, {"id_doc": "00029", "idTrabajador": "00029", "nombre": "Miguel Angel Conejo Garcia", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "00030", "idTrabajador": "00030", "nombre": "Victor Manuel Gallego Prieto", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "00031", "idTrabajador": "00031", "nombre": "Angel Blazquez Fernandez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "00032", "idTrabajador": "00032", "nombre": "Antonio de Pablo", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "00033", "idTrabajador": "00033", "nombre": "Francisco Javier Abad García", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "00034", "idTrabajador": "00034", "nombre": "Diego Antonio Panasiti", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "00035", "idTrabajador": "00035", "nombre": "Francisco Luque Villoldo", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "00036", "idTrabajador": "00036", "nombre": "Lourdes Rodriguez-Palancas Ramirez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "00037", "idTrabajador": "00037", "nombre": "Raul  Olmo Bastante", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "00038", "idTrabajador": "00038", "nombre": "Alberto Fernandez Marina", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "00039", "idTrabajador": "00039", "nombre": "Angel Luis Guerrero Pantoja", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "00040", "idTrabajador": "00040", "nombre": "Ismael Lozano Torrejón", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "00041", "idTrabajador": "00041", "nombre": "Samuel Cordon Moreno", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "00042", "idTrabajador": "00042", "nombre": "Sergio Garcia", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "00043", "idTrabajador": "00043", "nombre": "Sergio Lobon Perales", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "00044", "idTrabajador": "00044", "nombre": "Veselin Bintov Yonchev", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "00045", "idTrabajador": "00045", "nombre": "Juan Antonio Torrejón", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "00046", "idTrabajador": "00046", "nombre": "Raul Hernando Gonzalez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "00047", "idTrabajador": "00047", "nombre": "Ivan Ferrer Fernandez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00048", "idTrabajador": "00048", "nombre": "Jorge Garcia Crespo", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00049", "idTrabajador": "00049", "nombre": "Ricardo Nuñez Caballero", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00050", "idTrabajador": "00050", "nombre": "Sonia Lopez Montero Moreno", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00051", "idTrabajador": "00051", "nombre": "Alvaro Corpas Ramiro", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00052", "idTrabajador": "00052", "nombre": "Jesus Javier Rodriguez Orduñez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00053", "idTrabajador": "00053", "nombre": "Andres Felipe Castaño García", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN ", "seccionAsignada": "Producción ", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00054", "idTrabajador": "00054", "nombre": "Angel Benaigues", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00055", "idTrabajador": "00055", "nombre": "Alba Ayala Arroyo", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - CUADROS ELÉCTRICOS", "seccionAsignada": "Producción - Cuadros Eléctricos", "lineaBase": "S05", "turnoBase": "T1"}, {"id_doc": "00056", "idTrabajador": "00056", "nombre": "Juan Manuel Rodriguez Talavera", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - CUADROS ELÉCTRICOS", "seccionAsignada": "Producción - Cuadros Eléctricos", "lineaBase": "S05", "turnoBase": "T1"}, {"id_doc": "00057", "idTrabajador": "00057", "nombre": "Luis Enrique Casas Ramirez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - CUADROS ELÉCTRICOS", "seccionAsignada": "Producción - Cuadros Eléctricos", "lineaBase": "S05", "turnoBase": "T1"}, {"id_doc": "00058", "idTrabajador": "00058", "nombre": "Marisabel De Sousa", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - CUADROS ELÉCTRICOS", "seccionAsignada": "Producción - Cuadros Eléctricos", "lineaBase": "S05", "turnoBase": "T1"}, {"id_doc": "00059", "idTrabajador": "00059", "nombre": "Francisco José Pascual", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00060", "idTrabajador": "00060", "nombre": "Juan Jose Ruiz Martinez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00061", "idTrabajador": "00061", "nombre": "Jorge Fernandez Ramirez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN/BAJA", "seccionAsignada": "Producción/baja", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "00062", "idTrabajador": "00062", "nombre": "Alejandro Martin Garcia", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L4", "turnoBase": "T2"}, {"id_doc": "00063", "idTrabajador": "00063", "nombre": "Adrian Garcia Gutierrez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00064", "idTrabajador": "00064", "nombre": "Alexis Jesus Real Hernandez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00065", "idTrabajador": "00065", "nombre": "Fernando Jimenez Lopez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00066", "idTrabajador": "00066", "nombre": "Francisco Javier Ruiz Garcia", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00067", "idTrabajador": "00067", "nombre": "Jose Luis Rodriguez Jarillo", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00068", "idTrabajador": "00068", "nombre": "David Martin", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00069", "idTrabajador": "00069", "nombre": "Luis Enrique Guanilo Esqueche", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00070", "idTrabajador": "00070", "nombre": "Blanca Amelia Marques Jabato", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00071", "idTrabajador": "00071", "nombre": "Valentin Nieto Trujillo", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00072", "idTrabajador": "00072", "nombre": "Christian Juanes Cardona", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00073", "idTrabajador": "00073", "nombre": "Cristian Rodriguez Jimenez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00074", "idTrabajador": "00074", "nombre": "Daniel Barroso De Roa", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00075", "idTrabajador": "00075", "nombre": "Águeda Cintado Jimenez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "00076", "idTrabajador": "00076", "nombre": "Alberto Herrando Garcia", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "00077", "idTrabajador": "00077", "nombre": "David Santurde", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "00078", "idTrabajador": "00078", "nombre": "Ricardo Aragones López", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "00079", "idTrabajador": "00079", "nombre": "José Luis Sanchez Murillo", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "00080", "idTrabajador": "00080", "nombre": "Kevin Alexander Gordillo Guerrero", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "00081", "idTrabajador": "00081", "nombre": "Luís Miguel Hernandez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L4", "turnoBase": "T2"}, {"id_doc": "00082", "idTrabajador": "00082", "nombre": "Paulo Jorge Nunes María", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L4", "turnoBase": "T2"}, {"id_doc": "00083", "idTrabajador": "00083", "nombre": "Victor Romero Gonzalez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L4", "turnoBase": "T2"}, {"id_doc": "00084", "idTrabajador": "00084", "nombre": "Angel Arenas Buiza", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L4", "turnoBase": "T2"}, {"id_doc": "00085", "idTrabajador": "00085", "nombre": "Luis Miguel Hernandez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L4", "turnoBase": "T2"}, {"id_doc": "00086", "idTrabajador": "00086", "nombre": "Westley Chamorro Garcia", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L4", "turnoBase": "T2"}, {"id_doc": "00087", "idTrabajador": "00087", "nombre": "Carlos Garcia Guerra", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "00088", "idTrabajador": "00088", "nombre": "Esteban Martin Jimenez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "00089", "idTrabajador": "00089", "nombre": "Oscar Andres Jara", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "00090", "idTrabajador": "00090", "nombre": "Pedro Pablo Sanchez Cenamor", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "00091", "idTrabajador": "00091", "nombre": "Christian Moyano Morcillo", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "00092", "idTrabajador": "00092", "nombre": "Jose María Paniagua Sanchez", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD", "seccionAsignada": "Producción - Electricidad", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "00093", "idTrabajador": "00093", "nombre": "Mariano Villa Nicolas", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN/BAJA", "seccionAsignada": "Producción/baja", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "00094", "idTrabajador": "00094", "nombre": "Rodrigo Da Silva Medeisos", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD ", "seccionAsignada": "Producción - Electricidad ", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00095", "idTrabajador": "00095", "nombre": "Victor Manuel Moreno Cruz", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD ", "seccionAsignada": "Producción - Electricidad ", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00096", "idTrabajador": "00096", "nombre": "Alberto Hernandez Bargueño", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD ", "seccionAsignada": "Producción - Electricidad ", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00097", "idTrabajador": "00097", "nombre": "Francisco Javier Leon Padilla", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN - ELECTRICIDAD - BAJA", "seccionAsignada": "Producción - Electricidad - BAJA", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "00098", "idTrabajador": "00098", "nombre": "Cristian Gomez Marin", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN/BAJA", "seccionAsignada": "Producción/baja", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "00099", "idTrabajador": "00099", "nombre": "Rosa María Palacios Haro", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN/BAJA", "seccionAsignada": "Producción/baja", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "00100", "idTrabajador": "00100", "nombre": "Jorge Villarreal Mateo", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN/BAJA", "seccionAsignada": "Producción/baja", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "00101", "idTrabajador": "00101", "nombre": "Javier Ureña Portero", "isETT": false, "agencia": null, "seccionBase": "PRODUCCIÓN", "seccionAsignada": "Producción", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "04001", "idTrabajador": "04001", "nombre": "Enrique Aliste Diaz", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "06001", "idTrabajador": "06001", "nombre": "Ismael Jose Chaves Lemetre", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "04002", "idTrabajador": "04002", "nombre": "Hernan Alejandro Vare La Riva", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "04003", "idTrabajador": "04003", "nombre": "Aranzazu Vazquez Torrejon", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "04004", "idTrabajador": "04004", "nombre": "Jhon Stiven Betancur Castro", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "06002", "idTrabajador": "06002", "nombre": "Nayara Campos Martín", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "04005", "idTrabajador": "04005", "nombre": "Nelson Andres Castellanos Rodriguez", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "04006", "idTrabajador": "04006", "nombre": "Aisha Dorado Del Cerro", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "04007", "idTrabajador": "04007", "nombre": "Ismael Gonzalez Robles", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "06003", "idTrabajador": "06003", "nombre": "Aarón Sánchez Torrejón", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "BOX1", "turnoBase": "T2"}, {"id_doc": "04008", "idTrabajador": "04008", "nombre": "Alicia Aparicio", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "06004", "idTrabajador": "06004", "nombre": "Denis Razvan Dinu Pop", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "04009", "idTrabajador": "04009", "nombre": "David Hernandez Lopez-baltasar", "isETT": true, "agencia": "AURA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L2", "turnoBase": ""}, {"id_doc": "04010", "idTrabajador": "04010", "nombre": "Juarez Andy", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2", "turnoBase": ""}, {"id_doc": "06005", "idTrabajador": "06005", "nombre": "Sanders Ngandu Kabongo", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "04011", "idTrabajador": "04011", "nombre": "Álvaro Felipe Pálamo Boje", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "04012", "idTrabajador": "04012", "nombre": "Hugo Vargas Gutierrez", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "06006", "idTrabajador": "06006", "nombre": "David Izquierdo", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "", "seccionAsignada": "", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "04013", "idTrabajador": "04013", "nombre": "Juarez Andy", "isETT": true, "agencia": "AURA", "seccionBase": "", "seccionAsignada": "", "lineaBase": "L2", "turnoBase": "T1"}, {"id_doc": "04014", "idTrabajador": "04014", "nombre": "Juan Luis Moreno Risco", "isETT": true, "agencia": "AURA", "seccionBase": "E-PANEL", "seccionAsignada": "E-Panel", "lineaBase": "CUADROS", "turnoBase": "T2"}, {"id_doc": "06007", "idTrabajador": "06007", "nombre": "Iara Solera Bricio", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "CUADROS", "turnoBase": "T2"}, {"id_doc": "06008", "idTrabajador": "06008", "nombre": "Omar Fernando Franco Delgado", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "06009", "idTrabajador": "06009", "nombre": "Ivan Fernandez Espinosa", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "06010", "idTrabajador": "06010", "nombre": "Frank Gonzalez", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L1", "turnoBase": "T2"}, {"id_doc": "06011", "idTrabajador": "06011", "nombre": "Jhon Fernando Estrada Acevedo", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "CUADROS", "turnoBase": "T2"}, {"id_doc": "06012", "idTrabajador": "06012", "nombre": "Faysal No Seincorpora Aun Kasmi", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "CUADROS", "turnoBase": "T2"}, {"id_doc": "06013", "idTrabajador": "06013", "nombre": "Lucia Aguado Caballero", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "06014", "idTrabajador": "06014", "nombre": "Alejandro Aparicio Ortega Villaizan", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "06015", "idTrabajador": "06015", "nombre": "Roberto Gonzalez Del Valle", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": ""}, {"id_doc": "04015", "idTrabajador": "04015", "nombre": "Frank Stiben Gonzalez Rios", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": ""}, {"id_doc": "06016", "idTrabajador": "06016", "nombre": "David Izquierdo", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": ""}, {"id_doc": "04016", "idTrabajador": "04016", "nombre": "Stefan Nicula", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "06017", "idTrabajador": "06017", "nombre": "Daniela Tapias Franco", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "04017", "idTrabajador": "04017", "nombre": "Naiara Quintana Gonzalez", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "04018", "idTrabajador": "04018", "nombre": "Iosif Silviu Constantin", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": "T1"}, {"id_doc": "06018", "idTrabajador": "06018", "nombre": "Lucia Triviño Guerrero", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "CUADROS", "turnoBase": "T1"}, {"id_doc": "06019", "idTrabajador": "06019", "nombre": "Juan Jose Vasquez Ortega", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "06020", "idTrabajador": "06020", "nombre": "Mª Dolores Villanueva Olmedo", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "04019", "idTrabajador": "04019", "nombre": "Tariel Goete", "isETT": true, "agencia": "AURA", "seccionBase": "SHEETMETAL", "seccionAsignada": "SheetMetal", "lineaBase": "CNC", "turnoBase": ""}, {"id_doc": "04020", "idTrabajador": "04020", "nombre": "Gabriel Gomez Voicu", "isETT": true, "agencia": "AURA", "seccionBase": "SHEETMETAL", "seccionAsignada": "SheetMetal", "lineaBase": "CNC", "turnoBase": ""}, {"id_doc": "04021", "idTrabajador": "04021", "nombre": "Jose Maria Hernandez Tello", "isETT": true, "agencia": "AURA", "seccionBase": "SHEETMETAL", "seccionAsignada": "SheetMetal", "lineaBase": "CNC", "turnoBase": ""}, {"id_doc": "06021", "idTrabajador": "06021", "nombre": "Raul Bermejo Bravo", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "SHEETMETAL", "seccionAsignada": "SheetMetal", "lineaBase": "CNC", "turnoBase": ""}, {"id_doc": "04022", "idTrabajador": "04022", "nombre": "Ricardo Carmena Estévez", "isETT": true, "agencia": "AURA", "seccionBase": "SHEETMETAL", "seccionAsignada": "SheetMetal", "lineaBase": "CNC", "turnoBase": ""}, {"id_doc": "04023", "idTrabajador": "04023", "nombre": "Eduardo Diaz Martin", "isETT": true, "agencia": "AURA", "seccionBase": "SHEETMETAL", "seccionAsignada": "SheetMetal", "lineaBase": "CNC", "turnoBase": ""}, {"id_doc": "06022", "idTrabajador": "06022", "nombre": "Diego Rollan", "isETT": true, "agencia": "OTRA", "seccionBase": "", "seccionAsignada": "", "lineaBase": "CNC", "turnoBase": ""}, {"id_doc": "06023", "idTrabajador": "06023", "nombre": "Roberto Hermida Manzaneque", "isETT": true, "agencia": "OTRA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "PANELADO", "turnoBase": ""}, {"id_doc": "06024", "idTrabajador": "06024", "nombre": "Marcos Del Castillo Egido", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "SHEETMETAL", "seccionAsignada": "SheetMetal", "lineaBase": "", "turnoBase": ""}, {"id_doc": "06025", "idTrabajador": "06025", "nombre": "Alejandro Martin Espinosa", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "SHEETMETAL", "seccionAsignada": "SheetMetal", "lineaBase": "", "turnoBase": ""}, {"id_doc": "04024", "idTrabajador": "04024", "nombre": "Diego Rollan Gutierrez", "isETT": true, "agencia": "AURA", "seccionBase": "", "seccionAsignada": "", "lineaBase": "CNC", "turnoBase": ""}, {"id_doc": "06026", "idTrabajador": "06026", "nombre": "Daniel Cerrada Canales", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "04025", "idTrabajador": "04025", "nombre": "Angel De Llames Rodríguez", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "06027", "idTrabajador": "06027", "nombre": "David Galan Carrasco", "isETT": true, "agencia": "OTRA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "06028", "idTrabajador": "06028", "nombre": "Raúl Melchor Fernández", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "06029", "idTrabajador": "06029", "nombre": "Juan Jose Talavan", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "04026", "idTrabajador": "04026", "nombre": "Francisco Javier Rodriguez Reyes", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "06030", "idTrabajador": "06030", "nombre": "Raúl Melchor Fernández", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "", "seccionAsignada": "", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "06031", "idTrabajador": "06031", "nombre": "Hugo Saez Conde", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L3", "turnoBase": "T1"}, {"id_doc": "04027", "idTrabajador": "04027", "nombre": "Adrian De Pablo Leal", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "04028", "idTrabajador": "04028", "nombre": "Morillo Marcelo", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L3", "turnoBase": "T2"}, {"id_doc": "06032", "idTrabajador": "06032", "nombre": "David Manzanero Ocaña", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "06033", "idTrabajador": "06033", "nombre": "Ana Celia Valdivieso Anton", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L5", "turnoBase": "T1"}, {"id_doc": "06034", "idTrabajador": "06034", "nombre": "Cesar Catalina Loarce", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L2", "turnoBase": ""}, {"id_doc": "06035", "idTrabajador": "06035", "nombre": "Robert Cristian Sardan", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "06036", "idTrabajador": "06036", "nombre": "Santiago Oñate Nuñez", "isETT": true, "agencia": "OTRA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "04029", "idTrabajador": "04029", "nombre": "Rodrigo Cedillo Grande", "isETT": true, "agencia": "AURA", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L4", "turnoBase": ""}, {"id_doc": "06037", "idTrabajador": "06037", "nombre": "Angel González García", "isETT": true, "agencia": "OTRA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": ""}, {"id_doc": "06038", "idTrabajador": "06038", "nombre": "Anas El Boukuri", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "L4", "turnoBase": "T2"}, {"id_doc": "06039", "idTrabajador": "06039", "nombre": "Regino Rodriguez Berlinches", "isETT": true, "agencia": "OTRA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": "T2"}, {"id_doc": "04030", "idTrabajador": "04030", "nombre": "Angel Gonzalez Garcia", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L4", "turnoBase": ""}, {"id_doc": "04031", "idTrabajador": "04031", "nombre": "Julian Aparicio", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "04032", "idTrabajador": "04032", "nombre": "Sebastian Martinez Jaime", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "04033", "idTrabajador": "04033", "nombre": "Juan Antonio Puebla Pinillos", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "04034", "idTrabajador": "04034", "nombre": "Daniel Sanz Melero", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L5", "turnoBase": "T2"}, {"id_doc": "06040", "idTrabajador": "06040", "nombre": "Mario Lopez De La Fuente Dominguez", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "ELECTRICAL", "seccionAsignada": "Electrical", "lineaBase": "TEST FINAL", "turnoBase": "T2"}, {"id_doc": "04035", "idTrabajador": "04035", "nombre": "Jermain Manuel Oporte Calderon", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "06041", "idTrabajador": "06041", "nombre": "Ricardo Prieto Granados", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L1", "turnoBase": "T1"}, {"id_doc": "04036", "idTrabajador": "04036", "nombre": "Daniel Asensio Luengo", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "04037", "idTrabajador": "04037", "nombre": "Martin Garcia Silgado", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "04038", "idTrabajador": "04038", "nombre": "Christian Gómez Vicou", "isETT": true, "agencia": "AURA", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2", "turnoBase": "T2"}, {"id_doc": "06042", "idTrabajador": "06042", "nombre": "Paula Vallejo Diaz", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "L2 ", "turnoBase": "T2"}, {"id_doc": "04039", "idTrabajador": "04039", "nombre": "Martin Lopez Andia", "isETT": true, "agencia": "AURA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "04040", "idTrabajador": "04040", "nombre": "Celestine Nnamani", "isETT": true, "agencia": "AURA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06043", "idTrabajador": "06043", "nombre": "Juan Carlos Gonzalez Bolron", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "04041", "idTrabajador": "04041", "nombre": "David Martin Quiros", "isETT": true, "agencia": "AURA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06044", "idTrabajador": "06044", "nombre": "Marco Antonio Ruiz De La Orden", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06045", "idTrabajador": "06045", "nombre": "Enrique De La Llave Rodríguez-toribio", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06046", "idTrabajador": "06046", "nombre": "Mª Del Mar Gomez Cano", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06047", "idTrabajador": "06047", "nombre": "Iván Lopez Olmedo", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06048", "idTrabajador": "06048", "nombre": "Tamara Lopez-romero Arriscado", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06049", "idTrabajador": "06049", "nombre": "Javier Sanchez Madrigal", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06050", "idTrabajador": "06050", "nombre": "Miguel Sanz Sanchez", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06051", "idTrabajador": "06051", "nombre": "Niomar Leandro Schlosser", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06052", "idTrabajador": "06052", "nombre": "Daniel Sepulveda Jimenez", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06053", "idTrabajador": "06053", "nombre": "Antonia Villa Mena", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06054", "idTrabajador": "06054", "nombre": "Rubén Berruezo", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06055", "idTrabajador": "06055", "nombre": "Jose Manuel Fernandez Rojas", "isETT": true, "agencia": "OTRA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "04042", "idTrabajador": "04042", "nombre": "Alejandro Cuenda Fernández", "isETT": true, "agencia": "AURA", "seccionBase": "COILS", "seccionAsignada": "Coils", "lineaBase": "BATERIA", "turnoBase": ""}, {"id_doc": "06056", "idTrabajador": "06056", "nombre": "Félix Pinto", "isETT": true, "agencia": "EUROFIRMS", "seccionBase": "MECHANICAL", "seccionAsignada": "Mechanical", "lineaBase": "BOX1", "turnoBase": ""}];
+
+// ---------- Utilidades de dominio ----------
+function normTurno(t){
+  t=(t||'').toString().trim().toUpperCase();
+  if(['T1','TURNO 1','MAÑANA','MANANA'].includes(t))return 'MAÑANA';
+  if(['T2','TURNO 2','TARDE'].includes(t))return 'TARDE';
+  return null;
+}
+function normLinea(l){
+  l=(l||'').toString().trim().toUpperCase().replace(/\s+/g,'');
+  return l;
+}
+// Posición de jugador según sección
+function posicion(sec){
+  const s=(sec||'').toUpperCase();
+  if(s.includes('ELECTR')||s.includes('CUADRO')||s.includes('E-PANEL'))return 'ELE';
+  if(s.includes('MECAN')||s.includes('MECHAN'))return 'MEC';
+  if(s.includes('BATER')||s.includes('COIL'))return 'BAT';
+  if(s.includes('SHEET')||s.includes('METAL')||s.includes('PERFIL')||s.includes('SOLD'))return 'CHA';
+  if(s.includes('TEST')||s.includes('CALID'))return 'TST';
+  if(s.includes('LOG'))return 'LOG';
+  return 'PRO';
+}
+
+// Genera stats deterministas a partir del ID (mientras no haya skill_scores reales enlazados)
+// Semilla estable -> mismo operario siempre igual. Sustituible por datos reales.
+function seed(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0)}
+function rng(s){return ()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
+
+function statsFor(op){
+  const r=rng(seed(op.idTrabajador||op.id_doc||op.nombre));
+  const base = op.isETT ? 58 : 68;               // plantilla propia arranca más alto
+  const spread = op.isETT ? 26 : 24;
+  const mk=()=>Math.max(40,Math.min(99,Math.round(base + (r()-0.35)*spread)));
+  const s = {
+    FOR: mk(), // Formación
+    POL: mk(), // Polivalencia
+    ASI: mk(), // Asistencia
+    PRO: mk(), // Productividad
+    CAL: mk(), // Calidad
+    EXP: mk()  // Experiencia
+  };
+  s.OVR = Math.round((s.FOR*0.25 + s.POL*0.2 + s.ASI*0.15 + s.PRO*0.2 + s.CAL*0.12 + s.EXP*0.08));
+  return s;
+}
+function tier(ovr,isETT){
+  if(ovr>=88)return 'special';
+  if(ovr>=80)return 'gold';
+  if(ovr>=70)return 'silver';
+  return 'bronze';
+}
+function firstName(n){const p=(n||'').trim().split(' ');return (p[0]||'').toUpperCase()}
+function shortName(n){
+  const p=(n||'').trim().split(' ').filter(Boolean);
+  if(p.length<=2)return n.toUpperCase();
+  return (p[0][0]+'. '+p.slice(1).join(' ')).toUpperCase();
+}
+function initials(n){const p=(n||'').trim().split(' ').filter(Boolean);return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'')}
+
+// ---------- Definición de los 11 equipos ----------
+const LINEAS=['L1','L2','L3','L4','L5'];
+const TEAMS=[];
+LINEAS.forEach(L=>{TEAMS.push({id:L+'-MAÑANA',linea:L,turno:'MAÑANA',cls:'morning'});
+                   TEAMS.push({id:L+'-TARDE',linea:L,turno:'TARDE',cls:'evening'})});
+TEAMS.push({id:'BOX1',linea:'BOX1',turno:null,cls:'box'});
+
+let OPERARIOS=[]; let BENCH={}; let ACTIVE=TEAMS[0].id;
+
+function assignTeam(op){
+  const L=normLinea(op.lineaBase);
+  if(!['L1','L2','L3','L4','L5','BOX1'].includes(L))return null;
+  if(L==='BOX1')return 'BOX1';
+  const t=normTurno(op.turnoBase);
+  if(t)return L+'-'+t;
+  return {bench:L}; // sin turno -> banquillo de esa línea
+}
+
+async function load(){
+  try{
+    OPERARIOS=MOCK_DATA;
+    // reparto
+    const byTeam={}; TEAMS.forEach(t=>byTeam[t.id]=[]);
+    BENCH={}; LINEAS.forEach(L=>BENCH[L]=[]);
+    OPERARIOS.forEach(op=>{
+      const a=assignTeam(op);
+      if(!a)return;
+      if(typeof a==='string'){op._stats=statsFor(op);byTeam[a].push(op)}
+      else if(a.bench){op._stats=statsFor(op);BENCH[a.bench].push(op)}
+    });
+    window._byTeam=byTeam;
+    const total=Object.values(byTeam).reduce((s,a)=>s+a.length,0);
+    const bench=Object.values(BENCH).reduce((s,a)=>s+a.length,0);
+    document.getElementById('status').innerHTML=`<b>${total}</b> en equipos · ${bench} en banquillo · ${OPERARIOS.length} total`;
+    renderBar();renderLocker();
+  }catch(e){
+    document.getElementById('status').textContent='Error: '+e.message;
+    document.getElementById('locker').innerHTML=`<div class="empty">No se pudo leer Firebase.<br>${e.message}</div>`;
+  }
+}
+
+function renderBar(){
+  const bar=document.getElementById('teams-bar');
+  bar.innerHTML='';
+  TEAMS.forEach(t=>{
+    const n=(window._byTeam[t.id]||[]).length;
+    const pill=document.createElement('div');
+    pill.className='team-pill '+t.cls+(t.id===ACTIVE?' active':'');
+    pill.innerHTML=`${t.linea}${t.turno?' '+(t.turno==='MAÑANA'?'M':'T'):''} <span class="cnt">${n}</span>`;
+    pill.onclick=()=>{ACTIVE=t.id;renderBar();renderLocker()};
+    bar.appendChild(pill);
+  });
+}
+
+function teamOVR(list){if(!list.length)return 0;return Math.round(list.reduce((s,o)=>s+o._stats.OVR,0)/list.length)}
+function avg(list,k){if(!list.length)return 0;return Math.round(list.reduce((s,o)=>s+o._stats[k],0)/list.length)}
+
+function renderLocker(){
+  const t=TEAMS.find(x=>x.id===ACTIVE);
+  let list=(window._byTeam[ACTIVE]||[]).slice().sort((a,b)=>b._stats.OVR-a._stats.OVR);
+  const benchList = t.turno ? (BENCH[t.linea]||[]) : [];
+  const locker=document.getElementById('locker');
+
+  const ovr=teamOVR(list);
+  const head=`
+    <div class="locker-head">
+      <div>
+        <div class="locker-title">${t.linea}<span>${t.turno?('TURNO '+t.turno):'TURNO ÚNICO'}</span></div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi"><div class="v">${list.length}</div><div class="k">Plantilla</div></div>
+        <div class="kpi"><div class="v">${avg(list,'FOR')}</div><div class="k">Formación</div></div>
+        <div class="kpi"><div class="v">${avg(list,'POL')}</div><div class="k">Polivalencia</div></div>
+        <div class="kpi"><div class="v">${avg(list,'ASI')}</div><div class="k">Asistencia</div></div>
+        <div class="kpi"><div class="v">${avg(list,'PRO')}</div><div class="k">Productividad</div></div>
+      </div>
+      <div class="team-ovr"><div class="n">${ovr}</div><div class="l">MEDIA EQUIPO</div></div>
+    </div>`;
+
+  const cards = list.length ? `<div class="cards">${list.map(cardHTML).join('')}</div>`
+    : `<div class="empty">Sin jugadores asignados a este equipo todavía.</div>`;
+
+  let benchBlock='';
+  if(benchList.length){
+    benchBlock=`<h3 style="font-family:'Rajdhani';letter-spacing:2px;margin:2rem 0 1rem;color:var(--ink-dim)">
+      BANQUILLO ${t.linea} · sin turno asignado (${benchList.length})</h3>
+      <div class="cards">${benchList.slice().sort((a,b)=>b._stats.OVR-a._stats.OVR).map(cardHTML).join('')}</div>`;
+  }
+
+  const legend=`<div class="legend">
+    <span><i style="background:linear-gradient(135deg,#a8892a,#f0d874)"></i>Oro 80+</span>
+    <span><i style="background:linear-gradient(135deg,#8a97a8,#dfe8f2)"></i>Plata 70-79</span>
+    <span><i style="background:linear-gradient(135deg,#8a5a34,#d29868)"></i>Bronce &lt;70</span>
+    <span><i style="background:linear-gradient(135deg,#0a3d2d,#12d6a0)"></i>Especial 88+</span>
+    <span style="margin-left:auto">Stats provisionales sobre datos del Excel · listas para enlazar skill_scores reales</span>
+  </div>`;
+
+  locker.innerHTML=head+cards+benchBlock+legend;
+  document.querySelectorAll('.card').forEach(c=>c.onclick=()=>openCard(c.dataset.id));
+}
+
+function cardHTML(op){
+  const s=op._stats;const cls=tier(s.OVR,op.isETT);
+  const ag=op.isETT?(op.agencia||'ETT'):'STULZ';
+  return `<div class="card ${cls}" data-id="${op.id_doc}">
+    <div class="c-top">
+      <div><div class="ovr">${s.OVR}</div><div class="pos">${posicion(op.seccionBase||op.seccionAsignada)}</div></div>
+      <div class="agency">${ag}</div>
+    </div>
+    <div class="photo">${initials(op.nombre)}</div>
+    <div class="name">${shortName(op.nombre)}</div>
+    <div class="stats">
+      <span>FOR <b>${s.FOR}</b></span><span>PRO <b>${s.PRO}</b></span>
+      <span>POL <b>${s.POL}</b></span><span>CAL <b>${s.CAL}</b></span>
+      <span>ASI <b>${s.ASI}</b></span><span>EXP <b>${s.EXP}</b></span>
+    </div>
+    <div class="id-tag">${op.idTrabajador||op.id_doc}</div>
+  </div>`;
+}
+
+function openCard(id){
+  const op=OPERARIOS.find(o=>o.id_doc===id);if(!op)return;
+  const s=op._stats;
+  const rows=[['Formación','FOR'],['Polivalencia','POL'],['Asistencia','ASI'],
+    ['Productividad','PRO'],['Calidad','CAL'],['Experiencia','EXP']];
+  const bars=rows.map(([l,k])=>`
+    <div class="bar-row"><div class="lab">${l}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${s[k]}%"></div></div>
+      <div class="val">${s[k]}</div></div>`).join('');
+  document.getElementById('sheet').innerHTML=`
+    <span class="close" onclick="closeModal()">✕</span>
+    <h3>${op.nombre}</h3>
+    <div class="sub">${op.idTrabajador||op.id_doc} · ${op.isETT?(op.agencia||'ETT'):'STULZ'} · ${posicion(op.seccionBase||op.seccionAsignada)} · ${normLinea(op.lineaBase)||'—'} ${op.turnoBase||''}</div>
+    <div style="display:flex;gap:1.5rem;align-items:center">
+      <div style="font-family:'Rajdhani';font-weight:700;font-size:3.5rem;color:var(--gold);line-height:1">${s.OVR}<div style="font-size:.6rem;letter-spacing:2px;color:var(--ink-dim)">VALORACIÓN</div></div>
+      <div style="flex:1">${bars}</div>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open')}
+document.getElementById('modal').onclick=e=>{if(e.target.id==='modal')closeModal()};
+
+load();
+</script>
+</body>
+</html>

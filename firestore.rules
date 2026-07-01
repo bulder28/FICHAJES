@@ -71,5 +71,12 @@ service cloud.firestore {
                    && request.resource.data.nombre.size() <= 100;
       allow delete: if true; // Permitir borrar operarios si fuera necesario
     }
+
+    // REGLAS PARA LA COLECCIÓN DE FESTIVOS
+    match /festivos/{festivoId} {
+      allow read: if true;
+      allow write: if true; // Permitir insertar festivos desde auto-importación
+      allow delete: if true;
+    }
   }
 }
