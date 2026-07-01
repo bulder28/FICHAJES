@@ -1,0 +1,37 @@
+PACK DE CORRECCIÓN - FICHAJES (commit "Add files via upload" del 02/07)
+=======================================================================
+
+QUÉ PASÓ: los 3 ficheros nuevos se subieron a la RAÍZ del repo y
+sobrescribieron el app.js y excel.js originales de la pantalla
+principal (index.html). La home está rota y configuracion/ sigue
+con el código viejo.
+
+ESTE PACK CONTIENE (ya en su estructura correcta):
+  app.js                          <- ORIGINAL restaurado (raíz)
+  excel.js                        <- ORIGINAL restaurado (raíz)
+  configuracion/configuracion.html      <- NUEVO (con modal revisión)
+  configuracion/js/app.js               <- NUEVO (handler + revisión)
+  configuracion/js/excel.js             <- NUEVO (matching v2)
+
+OPCIÓN A - Con git en tu PC (recomendado):
+  1. Descomprime este zip DENTRO de la carpeta del repo,
+     sobrescribiendo todo cuando pregunte.
+  2. Borra el configuracion.html suelto de la RAÍZ del repo
+     (el bueno está en configuracion/configuracion.html).
+  3. git add -A
+     git commit -m "fix: restaurar raiz y colocar importador ILUO v2 en configuracion"
+     git push
+
+OPCIÓN B - Desde la web de GitHub:
+  1. Sube app.js y excel.js de este pack a la RAÍZ (sobrescriben).
+  2. Entra en la carpeta configuracion/ -> Add file -> Upload files
+     -> sube configuracion.html.
+  3. Entra en configuracion/js/ -> Upload files -> sube app.js y excel.js.
+  4. Borra el configuracion.html que quedó en la raíz
+     (abrir el fichero -> icono papelera -> commit).
+
+DESPUÉS DEL PUSH (Netlify redespliega solo):
+  1. Comprueba que la home de fichajes vuelve a funcionar.
+  2. Configuración -> reimportar las 6 matrices ILUO.
+  3. Resolver los nombres pendientes en el modal de revisión.
+  4. En la consola del navegador: await purgarScoresAntiguos()
