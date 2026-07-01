@@ -221,6 +221,22 @@
         </div>
     </div>
 
+    <!-- Modal Revisión Importación ILUO -->
+    <div id="iluo-review-modal" class="modal-overlay">
+        <div class="modal-content glass-panel" style="max-width: 640px; max-height: 85vh; overflow-y: auto;">
+            <h3><i class="ph ph-user-focus"></i> Revisión de importación ILUO</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Estos nombres de la matriz no se han podido asociar automáticamente a ningún operario.
+                Asígnalos manualmente (se recordará para futuras importaciones) u omítelos si la persona ya no está en plantilla.
+            </p>
+            <div id="iluo-review-summary" style="font-size: 0.85rem; margin-bottom: 1rem; padding: 0.6rem 0.8rem; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25);"></div>
+            <div id="iluo-review-list"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeIluoReviewModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
