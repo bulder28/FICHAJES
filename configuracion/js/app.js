@@ -349,28 +349,33 @@ async function handleImportIluo() {
         showToast('Selecciona al menos un archivo Excel (.xlsx)', 'warning');
         return;
     }
-
     if (typeof importarMatrizILUO !== 'function') {
         showToast('Error interno: el módulo excel.js no está cargado.', 'error');
         return;
     }
 
     const linea = lineaSelect.value;
-    const seccionManual = seccionSelect.value; // Siempre hay un valor por defecto
+    const seccionManual = seccionSelect.value;
 
     btn.disabled = true;
     btn.textContent = 'Importando...';
 
     let totalImported = 0;
-    let errors = [];
+    let totalDeleted = 0;
+    const errors = [];
+    const allUnmatched = [];   // { matrixId, seccion, excelName }
 
     for (const file of fileInput.files) {
         try {
-            // Primero intentamos adivinar la sección del nombre del archivo
-            // Si no se puede, usamos el selector manual
             const result = await importarMatrizILUO(file, linea, seccionManual);
             totalImported++;
-            console.log(`✓ ${file.name} → ${result.seccion}: ${result.totalTareas} tareas, ${result.totalScores} operarios`);
+            totalDeleted += result.deleted || 0;
+            console.log(`✓ ${file.name} → ${result.seccion}: ${result.totalTareas} tareas, ` +
+                        `${result.totalScores} operarios con score, ${result.deleted} scores antiguos borrados, ` +
+                        `${result.unmatched.length} sin match`);
+            for (const u of result.unmatched) {
+                allUnmatched.push({ matrixId: result.matrixId, seccion: result.seccion, excelName: u.excelName });
+            }
         } catch (err) {
             console.error(`✗ Error en ${file.name}:`, err);
             errors.push(`${file.name}: ${err.message}`);
@@ -381,14 +386,120 @@ async function handleImportIluo() {
     btn.textContent = 'Importar Matriz';
     fileInput.value = '';
 
-    if (errors.length === 0) {
-        showToast(`✓ ${totalImported} archivo(s) importados correctamente.`, 'success');
-    } else if (totalImported > 0) {
+    if (errors.length > 0 && totalImported === 0) {
+        showToast('Error importando: ' + errors[0], 'error');
+        return;
+    }
+    if (errors.length > 0) {
         showToast(`${totalImported} importados, ${errors.length} con errores. Revisa la consola.`, 'warning');
     } else {
-        showToast('Error importando: ' + errors[0], 'error');
+        showToast(`✓ ${totalImported} archivo(s) importados. ${totalDeleted} scores antiguos limpiados.`, 'success');
+    }
+
+    // Si hay nombres sin asociar, abrir el panel de revisión
+    if (allUnmatched.length > 0) {
+        await showIluoReviewModal(allUnmatched, totalImported, totalDeleted);
     }
 }
+
+/* ============================================================
+ * REVISIÓN ILUO — asignación manual de nombres sin match
+ * ============================================================ */
+
+let _iluoReviewItems = [];
+
+async function showIluoReviewModal(unmatchedItems, totalImported, totalDeleted) {
+    _iluoReviewItems = unmatchedItems;
+
+    // Cargar operarios para el desplegable (ordenados por ID)
+    const snap = await db.collection('operarios').get();
+    const ops = snap.docs
+        .map(d => ({ id: d.id, nombre: (d.data().nombre || d.data().name || '') }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+
+    const optionsHtml = '<option value="">— Seleccionar operario —</option>' +
+        ops.map(o => `<option value="${o.id}">${o.id} · ${o.nombre}</option>`).join('');
+
+    document.getElementById('iluo-review-summary').innerHTML =
+        `<b>${totalImported}</b> matriz/matrices importadas · <b>${totalDeleted}</b> scores antiguos limpiados · ` +
+        `<b style="color:#f59e0b;">${unmatchedItems.length}</b> nombres pendientes de asignar`;
+
+    const list = document.getElementById('iluo-review-list');
+    list.innerHTML = unmatchedItems.map((item, idx) => `
+        <div class="iluo-review-row" id="iluo-row-${idx}"
+             style="display:flex; align-items:center; gap:0.6rem; padding:0.6rem 0;
+                    border-bottom:1px solid rgba(148,163,184,0.15);">
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:0.85rem;">${item.excelName}</div>
+                <div style="font-size:0.72rem; color:var(--text-secondary);">${item.seccion}</div>
+            </div>
+            <select class="form-input" id="iluo-sel-${idx}" style="flex:1; font-size:0.8rem; padding:0.35rem;">
+                ${optionsHtml}
+            </select>
+            <button class="btn-primary" style="padding:0.35rem 0.7rem; font-size:0.78rem;"
+                    onclick="resolverAsignacionIluo(${idx})">Asignar</button>
+            <button class="btn-secondary" style="padding:0.35rem 0.7rem; font-size:0.78rem;"
+                    onclick="omitirAsignacionIluo(${idx})">Omitir</button>
+        </div>
+    `).join('');
+
+    document.getElementById('iluo-review-modal').style.display = 'flex';
+}
+
+function closeIluoReviewModal() {
+    document.getElementById('iluo-review-modal').style.display = 'none';
+}
+
+async function resolverAsignacionIluo(idx) {
+    const item = _iluoReviewItems[idx];
+    const sel = document.getElementById(`iluo-sel-${idx}`);
+    if (!sel.value) {
+        showToast('Selecciona un operario del desplegable.', 'warning');
+        return;
+    }
+    try {
+        await aplicarAsignacionManual(item.matrixId, item.excelName, sel.value);
+        const row = document.getElementById(`iluo-row-${idx}`);
+        row.style.opacity = '0.45';
+        row.innerHTML = `<div style="font-size:0.82rem;">✓ <b>${item.excelName}</b> → <b>${sel.value}</b> (alias guardado)</div>`;
+        showToast(`Asignado a ${sel.value}. Se recordará en futuras importaciones.`, 'success');
+    } catch (err) {
+        console.error(err);
+        showToast('Error asignando: ' + err.message, 'error');
+    }
+}
+
+function omitirAsignacionIluo(idx) {
+    const item = _iluoReviewItems[idx];
+    const row = document.getElementById(`iluo-row-${idx}`);
+    row.style.opacity = '0.45';
+    row.innerHTML = `<div style="font-size:0.82rem; color:var(--text-secondary);">— <b>${item.excelName}</b> omitido (no se importan sus scores)</div>`;
+}
+
+/* ============================================================
+ * UTILIDAD ONE-TIME: purgar scores con IDs antiguos (3 letras)
+ * Ejecutar UNA VEZ desde la consola del navegador en Configuración:
+ *   await purgarScoresAntiguos()
+ * Borra todo skill_score cuyo idTrabajador NO sea de 5 dígitos,
+ * independientemente de la línea/sección donde se subiera.
+ * ============================================================ */
+
+async function purgarScoresAntiguos() {
+    const snap = await db.collection('skill_scores').get();
+    const viejos = snap.docs.filter(d => !/^\d{5}$/.test(d.data().idTrabajador || ''));
+    console.log(`Encontrados ${viejos.length} scores con ID antiguo de ${snap.size} totales.`);
+    if (viejos.length === 0) return 0;
+
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < viejos.length; i += BATCH_SIZE) {
+        const batch = db.batch();
+        viejos.slice(i, i + BATCH_SIZE).forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    }
+    console.log(`✓ ${viejos.length} scores antiguos eliminados.`);
+    return viejos.length;
+}
+
 
 
 
