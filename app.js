@@ -1,729 +1,878 @@
-// Firebase y funciones compartidas (updateClock, updateDbStatus) ahora están en shared.js
+// configuracion/js/app.js - Lógica del Panel de Configuración Global
 
-let trainingRecords = [];
-let validWorkerIds = []; // Poka-yoke para validar IDs
+let operariosData = [];
 
-const lines = ['', 'L1', 'L2', 'L3', 'L4', 'L5', 'BOX 1'];
-const departamentos = ['', 'Montaje Mecánico', 'Montaje Eléctrico', 'Baterías', 'Transformación Metálica', 'Perfilería y Soldadura', 'Logística'];
-window.iluoData = []; // Caché global de la matriz ILUO
-const shifts = ['Mañana', 'Tarde'];
-
-// Calcular la fecha laboral del turno (con 2 horas de retraso)
-function getShiftDate() {
-    const now = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    return now.toISOString().split('T')[0];
-}
-
-// Calcular el turno correspondiente según la hora actual
-function getShiftName() {
-    const hour = new Date().getHours();
-    if (hour >= 6 && hour < 14) {
-        return 'Mañana';
-    }
-    return 'Tarde';
-}
-
-// (updateClock movido a shared.js)
-
-// Notificaciones y Modales centralizados en shared.js
-
-// Inicializar la aplicación
-async function initApp() {
-    // Lógica para Modo Administrador
-    const urlParams = new URLSearchParams(window.location.search);
-    let isAdmin = urlParams.get('admin') === '1';
-
-    const enableAdminMode = () => {
-        isAdmin = true;
-        document.querySelectorAll('.admin-only').forEach(el => {
-            el.style.display = '';
-        });
-    };
-
-    if (isAdmin) {
-        enableAdminMode();
+document.addEventListener('DOMContentLoaded', async () => {
+    // Iniciar reloj (shared.js)
+    if (typeof updateClock === 'function') {
+        setInterval(updateClock, 1000);
+        updateClock();
     }
 
-    // POKA-YOKE: Auto-importación de Calendario Laboral 2026 (Se ejecuta solo 1 vez)
-    if (!localStorage.getItem('calendario2026_importado')) {
-        const holidays2026 = [
-            { fecha: "2026-01-01", motivo: "AÑO NUEVO" }, { fecha: "2026-01-06", motivo: "EPIFANÍA DEL SEÑOR" },
-            { fecha: "2026-04-02", motivo: "JUEVES SANTO" }, { fecha: "2026-04-03", motivo: "VIERNES SANTO" },
-            { fecha: "2026-04-06", motivo: "SUSTITUCIÓN DE SAN JOSÉ" }, { fecha: "2026-05-01", motivo: "DÍA DEL TRABAJO" },
-            { fecha: "2026-06-04", motivo: "CORPUS CHRISTI" }, { fecha: "2026-08-15", motivo: "ASUNCIÓN DE LA VIRGEN" },
-            { fecha: "2026-10-12", motivo: "DÍA DE LA HISPANIDAD" }, { fecha: "2026-11-02", motivo: "SUSTITUCIÓN DE TODOS LOS SANTOS" },
-            { fecha: "2026-12-07", motivo: "SUSTITUCIÓN CONSTITUCIÓN ESPAÑOLA" }, { fecha: "2026-12-08", motivo: "DÍA DE LA INMACULADA CONCEPCIÓN" },
-            { fecha: "2026-12-25", motivo: "NAVIDAD" }, { fecha: "2026-01-02", motivo: "PUENTE" },
-            { fecha: "2026-06-05", motivo: "PUENTE" }, { fecha: "2026-12-24", motivo: "PUENTE (NOCHEBUENA)" },
-            { fecha: "2026-12-31", motivo: "PUENTE (NOCHEVIEJA)" }, { fecha: "2026-03-30", motivo: "VACACIONES" },
-            { fecha: "2026-03-31", motivo: "VACACIONES" }, { fecha: "2026-04-01", motivo: "VACACIONES" },
-            { fecha: "2026-12-28", motivo: "VACACIONES" }, { fecha: "2026-12-29", motivo: "VACACIONES" },
-            { fecha: "2026-12-30", motivo: "VACACIONES" }
-        ];
-        
-        // [FIX ARQUITECTO] Usar for...of en lugar de forEach(async) para garantizar escrituras ordenadas
-        try {
-            for (const h of holidays2026) {
-                await db.collection('festivos').add({ fecha: h.fecha, motivo: h.motivo, createdAt: Date.now() });
-            }
-            localStorage.setItem('calendario2026_importado', 'true');
-        } catch (e) {
-            console.error("Error al importar festivos automáticamente:", e);
-        }
-        showToast("Calendario Laboral 2026 importado automáticamente", "success");
-    }
-
-    // Cargar Configuración Global
-    if (typeof getGlobalConfig === 'function') {
-        getGlobalConfig().then(cfg => {
-            window.globalConfig = cfg;
+    // Listener para el buscador
+    const searchInput = document.getElementById('search-worker');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            renderWorkersTable(searchInput.value.toLowerCase());
         });
     }
 
-    // (Easter Egg eliminado por seguridad - Bug #1 Auditoria QA)
-
-    updateClock();
-    setInterval(updateClock, 1000);
+    // Modal forms
+    const formWorker = document.getElementById('worker-form');
+    if (formWorker) {
+        formWorker.addEventListener('submit', handleWorkerSubmit);
+    }
     
-    // Escuchar el estado de red local
-    updateDbStatus(navigator.onLine);
-    window.addEventListener('online', () => {
-        updateDbStatus(true);
-        showToast("Conexión de red restablecida", "success");
-    });
-    window.addEventListener('offline', () => {
-        updateDbStatus(false);
-        showToast("Se ha perdido la conexión de red", "error");
-    });
-
-    // Vincular botones del modal de confirmación
-    document.getElementById('modal-btn-cancel').addEventListener('click', () => closeConfirmModal(false));
-    document.getElementById('modal-btn-confirm').addEventListener('click', () => closeConfirmModal(true));
-
-    // Configurar modal de alta de operarios
-    setupWorkerModal();
+    const syncLineas = document.getElementById('sync-lineas-file');
+    if (syncLineas) {
+        syncLineas.addEventListener('change', handleSyncLineas);
+    }
     
-    // Configurar modal de festivos
-    // setupHolidayModal(); // Eliminado temporalmente por truncamiento
-    
-    // Modales de ILUO movidos a configuración/polivalencia
-
-    // Escuchar en tiempo real la colección de polivalencia (Matriz ILUO)
-    window.skillMatrices = [];
-    window.skillScores = {};
-
-    db.collection("skill_matrices").onSnapshot(snap => {
-        window.skillMatrices = [];
-        snap.forEach(doc => window.skillMatrices.push(doc.data()));
-        document.querySelectorAll('.cell-input[data-field="departamento"], .cell-input[data-field="linea"]').forEach(select => {
-            const tr = select.closest('tr');
-            if (tr) {
-                const event = new Event('change');
-                select.dispatchEvent(event);
-            }
-        });
-    }, error => console.error("Error cargando skill_matrices: ", error));
-
-    db.collection("skill_scores").onSnapshot(snap => {
-        window.skillScores = {};
-        snap.forEach(doc => {
-            const data = doc.data();
-            const wId = data.idTrabajador;
-            if (!window.skillScores[wId]) window.skillScores[wId] = [];
-            window.skillScores[wId].push(data);
-        });
-        document.querySelectorAll('#table-body tr').forEach(tr => {
-            const id = tr.getAttribute('data-id');
-            const record = trainingRecords.find(r => r.id === id);
-            if (record) updateSkillIndicator(tr, record);
-        });
-    }, error => console.error("Error cargando skill_scores: ", error));
-
-
-    // Escuchar en tiempo real la lista de operarios oficiales
-    db.collection("operarios").orderBy("nombre").onSnapshot((snapshot) => {
-        const datalist = document.getElementById('workers-list');
-        if (datalist) {
-            datalist.innerHTML = '';
-            validWorkerIds = [];
-            snapshot.forEach(doc => {
-                const opt = document.createElement('option');
-                const data = doc.data();
-                // Usar el ID como valor principal. No mostramos el nombre para mantener privacidad.
-                const displayValue = data.idTrabajador ? data.idTrabajador : data.nombre;
-                
-                if (data.idTrabajador) validWorkerIds.push(data.idTrabajador.toUpperCase());
-                
-                opt.value = displayValue;
-                opt.textContent = displayValue;
-                datalist.appendChild(opt);
-            });
-        }
-    }, (error) => {
-        console.error("Error cargando lista de operarios: ", error);
-    });
-
-    // Escuchar cambios en la colección filtrando por la fecha del turno
-    const q = db.collection("fichajes").where("fecha", "==", getShiftDate());
-    
-    let isInitialLoad = true;
-    q.onSnapshot((snapshot) => {
-        updateDbStatus(true); // Sincronizado correctamente
-        
-        if (isInitialLoad) {
-            trainingRecords = [];
-            snapshot.forEach(doc => {
-                trainingRecords.push({ id: doc.id, ...doc.data() });
-            });
-            trainingRecords.sort((a, b) => a.createdAt - b.createdAt);
-            document.getElementById('table-body').innerHTML = '';
-            trainingRecords.forEach(record => appendRowToTable(record));
-            // (isInitialLoad se actualiza más abajo ahora)
-        } else {
-            snapshot.docChanges().forEach((change) => {
-                const data = { id: change.doc.id, ...change.doc.data() };
-                
-                if (change.type === "added") {
-                    if (!trainingRecords.find(r => r.id === data.id)) {
-                        trainingRecords.push(data);
-                        appendRowToTable(data);
-                    }
-                }
-                if (change.type === "modified") {
-                    const index = trainingRecords.findIndex(r => r.id === data.id);
-                    if (index !== -1) {
-                        trainingRecords[index] = data;
-                        updateRowInTable(data);
-                    }
-                }
-                if (change.type === "removed") {
-                    trainingRecords = trainingRecords.filter(r => r.id !== data.id);
-                    removeRowFromTable(data.id);
-                }
-            });
-        }
-        
-        if (isInitialLoad) {
-            if (trainingRecords.length === 0) {
-                addRow();
-            }
-            isInitialLoad = false; // Move isInitialLoad = false here
-        }
-        
-        calculateTotal();
-    }, (error) => {
-        console.error("Error en Firestore onSnapshot: ", error);
-        updateDbStatus(false);
-        showToast("Error de sincronización con base de datos: " + error.message, "error");
-    });
-
-    document.getElementById('btn-add-row').addEventListener('click', addRow);
-}
-
-// Lógica para el Modal de Alta de Operario
-function setupWorkerModal() {
-    const btnAddWorker = document.getElementById('btn-add-worker');
-    const modal = document.getElementById('worker-modal');
-    const btnCancel = document.getElementById('worker-btn-cancel');
-    const btnConfirm = document.getElementById('worker-btn-confirm');
-    const nameInput = document.getElementById('new-worker-name');
-    const idInput = document.getElementById('new-worker-id');
-
-    if (!btnAddWorker || !modal || !btnCancel || !btnConfirm || !nameInput || !idInput) return;
-
-    const seccionSelect = document.getElementById('new-worker-seccion');
-    const lineaContainer = document.getElementById('linea-select-container');
-    const lineaSelect = document.getElementById('new-worker-linea');
-    
-    if (seccionSelect && lineaContainer) {
-        seccionSelect.addEventListener('change', (e) => {
-            if (e.target.value === 'MONTAJE') {
-                lineaContainer.style.display = 'block';
-            } else {
-                lineaContainer.style.display = 'none';
-                if (lineaSelect) lineaSelect.value = 'PENDIENTE DE VALIDACIÓN';
-            }
-        });
+    // Importador ILUO (usando el nuevo excel.js)
+    const btnImportIluo = document.getElementById('btn-import-iluo');
+    if (btnImportIluo) {
+        btnImportIluo.addEventListener('click', handleImportIluo);
     }
 
-    btnAddWorker.addEventListener('click', () => {
-        nameInput.value = '';
-        idInput.value = '';
-        
-        const turnoEl = document.getElementById('new-worker-turno');
-        const seccionEl = document.getElementById('new-worker-seccion');
-        if (turnoEl) turnoEl.value = '';
-        if (seccionEl) seccionEl.value = '';
+    // Importador Masivo de Operarios
+    const inputImportOperarios = document.getElementById('import-operarios-file');
+    if (inputImportOperarios) {
+        inputImportOperarios.addEventListener('change', handleImportOperariosMasivo);
+    }
 
-        if (lineaContainer) lineaContainer.style.display = 'none';
-        if (lineaSelect) lineaSelect.value = 'PENDIENTE DE VALIDACIÓN';
+    await loadData();
+});
 
-        modal.classList.add('show');
-        setTimeout(() => nameInput.focus(), 150);
-    });
+async function handleImportOperariosMasivo(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    const closeModal = () => {
-        modal.classList.remove('show');
-    };
+    if (typeof XLSX === 'undefined') {
+        showToast("Librería SheetJS no cargada.", "error");
+        e.target.value = '';
+        return;
+    }
 
-    btnCancel.addEventListener('click', closeModal);
-
-    btnConfirm.addEventListener('click', async () => {
-        const nombre = nameInput.value.trim().toUpperCase();
-        let idTrabajador = idInput.value.trim().toUpperCase();
-        
-        // Auto-completar ID de empresa
-        if (/^\d{3}$/.test(idTrabajador)) {
-            idTrabajador = "00" + idTrabajador;
-        }
-        
-        if (nombre.length < 3) {
-            showToast("Introduce el nombre y apellido completo del operario", "warning");
-            return;
-        }
-
-        // [POKA-YOKE QA] Validación de ID: exactamente 5 dígitos numéricos y prefijo válido
-        if (!/^\d{5}$/.test(idTrabajador)) {
-            showToast("El ID debe tener exactamente 5 dígitos numéricos.", "warning");
-            idInput.focus();
-            return;
-        }
-        if (!idTrabajador.startsWith("00") && !idTrabajador.startsWith("04") && !idTrabajador.startsWith("06")) {
-            showToast("El ID debe empezar por 00 (Empresa), o por 04/06 (ETT).", "warning");
-            return;
-        }
-
-        try {
-            btnConfirm.disabled = true;
-            btnConfirm.textContent = 'Registrando...';
-            
-            // Comprobar si ya existe el nombre
-            const existsNameQuery = await db.collection('operarios').where('nombre', '==', nombre).get();
-            if (!existsNameQuery.empty) {
-                showToast("Ya existe un operario con ese nombre", "warning");
-                btnConfirm.disabled = false;
-                btnConfirm.textContent = 'Registrar';
-                return;
-            }
-
-            const existsIdQuery = await db.collection('operarios').where('idTrabajador', '==', idTrabajador).get();
-            if (!existsIdQuery.empty) {
-                showToast("Ya existe un operario con ese ID", "warning");
-                btnConfirm.disabled = false;
-                btnConfirm.textContent = 'Registrar';
-                return;
-            }
-
-            const turnoBase = document.getElementById('new-worker-turno').value;
-            const seccionBase = document.getElementById('new-worker-seccion').value;
-            const calendarioBase = 'Lunes a Viernes';
-
-            if (!turnoBase || !seccionBase) {
-                showToast("Por favor, selecciona el Turno y la Sección Base.", "warning");
-                btnConfirm.disabled = false;
-                btnConfirm.textContent = 'Registrar';
-                return;
-            }
-
-            // Regla de Negocio: Montaje -> Línea
-            let lineaReferente = "N/A";
-            if (seccionBase === "MONTAJE") {
-                const lineaSelect = document.getElementById('new-worker-linea');
-                lineaReferente = lineaSelect ? lineaSelect.value : "PENDIENTE DE VALIDACIÓN";
-            }
-
-            await db.collection('operarios').add({
-                nombre: nombre,
-                idTrabajador: idTrabajador,
-                turnoBase: turnoBase,
-                seccionBase: seccionBase,
-                calendarioBase: calendarioBase,
-                lineaReferente: lineaReferente,
-                createdAt: Date.now()
-            });
-
-            showToast(`Operario ${nombre} registrado con éxito`, "success");
-            closeModal();
-        } catch (e) {
-            console.error("Error al registrar operario: ", e);
-            showToast("Error al guardar en base de datos: " + e.message, "error");
-        } finally {
-            btnConfirm.disabled = false;
-            btnConfirm.textContent = 'Registrar';
-        }
-    });
-
-    // Enter en input para confirmar
-    nameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            btnConfirm.click();
-        }
-    });
-}
-
-// Ejecutar initApp una vez listo el DOM
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initApp);
-} else {
-    initApp();
-}
-
-async function addRow() {
-    const today = getShiftDate();
-    const currentShift = getShiftName();
-    
-    const newDocRef = db.collection('fichajes').doc();
-    
-    const newRecord = {
-        id: newDocRef.id,
-        trabajador: '',
-        turno: currentShift,
-        of: '',
-        departamento: '',
-        maquina: '',
-        linea: '',
-        fecha: today,
-        tiempo: 0,
-        createdAt: Date.now()
-    };
-    
     try {
-        await newDocRef.set(newRecord);
-        showToast("Fila añadida", "success");
-    } catch (e) {
-        console.error("Error añadiendo registro: ", e);
-        showToast("Error al añadir fila: " + e.message, "error");
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                showToast("Procesando plantilla de operarios...", "info");
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                // Detección automática: si el libro trae las hojas "ETT" y/o "Personal fabrica"
+                // usamos el parser específico del formato real (Operarios_Lineas_ETT_*.xlsx)
+                const sheetNames = workbook.SheetNames;
+                const esFormatoLineasETT = sheetNames.includes('ETT') || sheetNames.includes('Personal fabrica');
+
+                let count = 0;
+
+                if (esFormatoLineasETT) {
+                    const opSnapshot = await db.collection('operarios').get();
+                    const dbOperarios = opSnapshot.docs.map(d => ({ id_doc: d.id, ...d.data() }));
+
+                    const registros = parseOperariosLineasWorkbook(workbook, dbOperarios);
+
+                    if (registros.length === 0) {
+                        showToast("No se encontraron operarios válidos en las hojas 'ETT' / 'Personal fabrica'.", "warning");
+                        return;
+                    }
+
+                    const BATCH_SIZE = 400;
+                    for (let i = 0; i < registros.length; i += BATCH_SIZE) {
+                        const batch = db.batch();
+                        const chunk = registros.slice(i, i + BATCH_SIZE);
+                        chunk.forEach(reg => {
+                            const docRef = db.collection('operarios').doc(reg.docId);
+                            batch.set(docRef, reg.payload, { merge: true });
+                        });
+                        await batch.commit();
+                        count += chunk.length;
+                    }
+
+                    showToast(`Se han importado/actualizado ${count} operarios (ETT + Personal fábrica).`, "success");
+                    await loadData();
+                    return;
+                }
+
+                // --- Formato genérico simple: columnas ID | Nombre | Tipo | Sección ---
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+                if (rows.length < 2) {
+                    showToast("El archivo está vacío o no tiene datos.", "warning");
+                    e.target.value = '';
+                    return;
+                }
+
+                // Empezamos desde la fila 1 (ignoramos la 0 que es cabecera)
+                const batch = db.batch();
+
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    
+                    let rawId = String(row[0] || '').trim();
+                    const nombre = String(row[1] || '').trim();
+                    const tipo = String(row[2] || '').toUpperCase().trim();
+                    const seccion = String(row[3] || '').trim();
+
+                    if (!rawId || !nombre) continue; // Si no hay ID o Nombre, saltamos
+                    
+                    // Forzamos el ID a 3 dígitos (ej: "42" -> "042")
+                    const cleanId = rawId.padStart(3, '0');
+
+                    const docRef = db.collection('operarios').doc(cleanId);
+                    
+                    const payload = {
+                        nombre: nombre,
+                        tipo: (tipo === 'ETT') ? 'ETT' : 'STULZ',
+                        seccionAsignada: seccion || 'No Definida',
+                        updatedAt: new Date().toISOString()
+                    };
+
+                    batch.set(docRef, payload, { merge: true });
+                    count++;
+                }
+
+                if (count > 0) {
+                    await batch.commit();
+                    showToast(`Se han importado/actualizado ${count} operarios con éxito.`, "success");
+                    await loadData(); // Recargamos la tabla
+                } else {
+                    showToast("No se encontraron filas válidas para importar.", "warning");
+                }
+
+            } catch (err) {
+                console.error("Error al procesar excel de operarios:", err);
+                showToast("Error procesando Excel: " + err.message, "error");
+            }
+        };
+        reader.onerror = () => {
+            showToast("Error leyendo archivo local.", "error");
+        };
+        reader.readAsArrayBuffer(file);
+    } catch (error) {
+        console.error("Error de inicialización de lectura:", error);
+        showToast("Error: " + error.message, "error");
+    } finally {
+        e.target.value = ''; // Reset
     }
 }
 
-async function removeRow(id) {
+// ----------------------------------------------------
+// Parser específico para el formato real "Operarios_Lineas_ETT_*.xlsx"
+// Hoja "Personal fabrica" -> plantilla propia STULZ (prefijo ID 00XXX)
+// Hoja "ETT"              -> personal de agencia (Aura -> 04XXX, EuroFirms -> 06XXX)
+// ----------------------------------------------------
+
+function toTitleCase(str) {
+    return (str || '')
+        .toLowerCase()
+        .split(' ')
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+}
+
+function buildIdCounters(dbOperarios) {
+    const counters = { '00': 0, '04': 0, '06': 0 };
+    dbOperarios.forEach(w => {
+        const id = w.idTrabajador || w.id_doc || '';
+        if (/^\d{5}$/.test(id)) {
+            const prefix = id.slice(0, 2);
+            const suffix = parseInt(id.slice(2), 10);
+            if (counters[prefix] !== undefined && suffix > counters[prefix]) {
+                counters[prefix] = suffix;
+            }
+        }
+    });
+    return counters;
+}
+
+function nextId(counters, prefix) {
+    counters[prefix] = (counters[prefix] || 0) + 1;
+    return prefix + String(counters[prefix]).padStart(3, '0');
+}
+
+function excelCellVal(ws, r, c) {
+    const addr = XLSX.utils.encode_cell({ r, c });
+    const cell = ws[addr];
+    if (!cell) return '';
+    return String(cell.v !== undefined ? cell.v : '').trim();
+}
+
+function parseOperariosLineasWorkbook(workbook, dbOperarios) {
+    const registros = [];
+    const counters = buildIdCounters(dbOperarios);
+
+    // Mapa de nombres normalizados -> operario existente (para no duplicar en reimportaciones)
+    const nameMap = {};
+    dbOperarios.forEach(w => {
+        const key = normalizeName(w.nombre);
+        if (key) nameMap[key] = w;
+    });
+
+    // ---------- HOJA "Personal fabrica" (plantilla propia STULZ) ----------
+    if (workbook.SheetNames.includes('Personal fabrica')) {
+        const ws = workbook.Sheets['Personal fabrica'];
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+
+        // Localizar la fila/columna de cabecera buscando la celda "Nombre"
+        let headerRow = -1, nameCol = -1;
+        for (let r = 0; r <= Math.min(10, range.e.r) && headerRow === -1; r++) {
+            for (let c = 0; c <= range.e.c; c++) {
+                if (excelCellVal(ws, r, c).toUpperCase() === 'NOMBRE') {
+                    headerRow = r; nameCol = c; break;
+                }
+            }
+        }
+
+        if (headerRow !== -1) {
+            const deptCol = nameCol + 1;
+            const checkCol = nameCol + 2;
+            const turnoCol = nameCol + 3;
+            const lineaCol = nameCol + 4;
+
+            for (let r = headerRow + 1; r <= range.e.r; r++) {
+                const nombre = excelCellVal(ws, r, nameCol);
+                if (!nombre) continue;
+
+                // Si hay columna "Check" y no dice OK, saltamos la fila (dato incompleto/de baja)
+                const check = excelCellVal(ws, r, checkCol);
+                if (check && !check.toUpperCase().includes('OK')) continue;
+
+                const departamento = excelCellVal(ws, r, deptCol);
+                const turno = excelCellVal(ws, r, turnoCol);
+                const linea = excelCellVal(ws, r, lineaCol);
+
+                const key = normalizeName(nombre);
+                const existing = nameMap[key];
+                const docId = existing ? (existing.idTrabajador || existing.id_doc) : nextId(counters, '00');
+
+                registros.push({
+                    docId,
+                    payload: {
+                        idTrabajador: docId,
+                        nombre: nombre,
+                        isETT: false,
+                        agencia: null,
+                        seccionBase: departamento ? departamento.toUpperCase() : '',
+                        lineaBase: linea ? linea.toUpperCase() : '',
+                        turnoBase: turno || '',
+                        updatedAt: new Date().toISOString()
+                    }
+                });
+
+                if (!existing) nameMap[key] = { idTrabajador: docId };
+            }
+        }
+    }
+
+    // ---------- HOJA "ETT" (personal de agencia) ----------
+    if (workbook.SheetNames.includes('ETT')) {
+        const ws = workbook.Sheets['ETT'];
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+
+        // Columnas fijas del formato conocido: B=Empleado, C=Empresa, E=Sección, G=Línea, J=Turno
+        const EMPLEADO_COL = 1, EMPRESA_COL = 2, SECCION_COL = 4, LINEA_COL = 6, TURNO_COL = 9;
+
+        for (let r = 1; r <= range.e.r; r++) {
+            const empleadoRaw = excelCellVal(ws, r, EMPLEADO_COL);
+            if (!empleadoRaw) continue;
+
+            // El nombre viene como "APELLIDOS, NOMBRE" -> lo invertimos a "Nombre Apellidos"
+            let nombre;
+            if (empleadoRaw.includes(',')) {
+                const partes = empleadoRaw.split(',');
+                const apellidos = partes[0].trim();
+                const nombrePila = partes.slice(1).join(',').trim();
+                nombre = toTitleCase(`${nombrePila} ${apellidos}`);
+            } else {
+                nombre = toTitleCase(empleadoRaw);
+            }
+
+            const empresaRaw = excelCellVal(ws, r, EMPRESA_COL).toUpperCase();
+
+            // Filtrar bajas / no incorporados: si en cualquier celda de la fila aparece
+            // "BAJA" o "NO INCORPORADO", omitimos la fila
+            let esBaja = false;
+            for (let c = 0; c <= range.e.c; c++) {
+                const v = excelCellVal(ws, r, c).toUpperCase();
+                if (v.includes('BAJA') || v.includes('NO INCORPORADO')) { esBaja = true; break; }
+            }
+            if (esBaja) continue;
+
+            let agencia = 'OTRA', prefix = '06';
+            if (empresaRaw.includes('AURA')) { agencia = 'AURA'; prefix = '04'; }
+            else if (empresaRaw.includes('EURO')) { agencia = 'EUROFIRMS'; prefix = '06'; }
+
+            const seccion = excelCellVal(ws, r, SECCION_COL);
+            const linea = excelCellVal(ws, r, LINEA_COL);
+            const turno = excelCellVal(ws, r, TURNO_COL);
+
+            const key = normalizeName(nombre);
+            const existing = nameMap[key];
+            const docId = existing ? (existing.idTrabajador || existing.id_doc) : nextId(counters, prefix);
+
+            registros.push({
+                docId,
+                payload: {
+                    idTrabajador: docId,
+                    nombre: nombre,
+                    isETT: true,
+                    agencia: agencia,
+                    seccionBase: seccion ? seccion.toUpperCase() : '',
+                    lineaBase: linea ? linea.toUpperCase() : '',
+                    turnoBase: turno || '',
+                    updatedAt: new Date().toISOString()
+                }
+            });
+
+            if (!existing) nameMap[key] = { idTrabajador: docId };
+        }
+    }
+
+    // Deduplicar por docId (si una persona aparece dos veces en el Excel, gana la última fila)
+    const porId = {};
+    registros.forEach(reg => { porId[reg.docId] = reg; });
+    return Object.values(porId);
+}
+
+async function handleImportIluo() {
+    const fileInput = document.getElementById('iluo-file');
+    const lineaSelect = document.getElementById('iluo-linea');
+    const seccionSelect = document.getElementById('iluo-seccion');
+    const btn = document.getElementById('btn-import-iluo');
+
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showToast('Selecciona al menos un archivo Excel (.xlsx)', 'warning');
+        return;
+    }
+    if (typeof importarMatrizILUO !== 'function') {
+        showToast('Error interno: el módulo excel.js no está cargado.', 'error');
+        return;
+    }
+
+    const linea = lineaSelect.value;
+    const seccionManual = seccionSelect.value;
+
+    btn.disabled = true;
+    btn.textContent = 'Importando...';
+
+    let totalImported = 0;
+    let totalDeleted = 0;
+    const errors = [];
+    const allUnmatched = [];   // { matrixId, seccion, excelName }
+
+    for (const file of fileInput.files) {
+        try {
+            const result = await importarMatrizILUO(file, linea, seccionManual);
+            totalImported++;
+            totalDeleted += result.deleted || 0;
+            console.log(`✓ ${file.name} → ${result.seccion}: ${result.totalTareas} tareas, ` +
+                        `${result.totalScores} operarios con score, ${result.deleted} scores antiguos borrados, ` +
+                        `${result.unmatched.length} sin match`);
+            for (const u of result.unmatched) {
+                allUnmatched.push({ matrixId: result.matrixId, seccion: result.seccion, excelName: u.excelName });
+            }
+        } catch (err) {
+            console.error(`✗ Error en ${file.name}:`, err);
+            errors.push(`${file.name}: ${err.message}`);
+        }
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Importar Matriz';
+    fileInput.value = '';
+
+    if (errors.length > 0 && totalImported === 0) {
+        showToast('Error importando: ' + errors[0], 'error');
+        return;
+    }
+    if (errors.length > 0) {
+        showToast(`${totalImported} importados, ${errors.length} con errores. Revisa la consola.`, 'warning');
+    } else {
+        showToast(`✓ ${totalImported} archivo(s) importados. ${totalDeleted} scores antiguos limpiados.`, 'success');
+    }
+
+    // Si hay nombres sin asociar, abrir el panel de revisión
+    if (allUnmatched.length > 0) {
+        await showIluoReviewModal(allUnmatched, totalImported, totalDeleted);
+    }
+}
+
+/* ============================================================
+ * REVISIÓN ILUO — asignación manual de nombres sin match
+ * ============================================================ */
+
+let _iluoReviewItems = [];
+
+async function showIluoReviewModal(unmatchedItems, totalImported, totalDeleted) {
+    _iluoReviewItems = unmatchedItems;
+
+    // Cargar operarios para el desplegable (ordenados por ID)
+    const snap = await db.collection('operarios').get();
+    const ops = snap.docs
+        .map(d => ({ id: d.id, nombre: (d.data().nombre || d.data().name || '') }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+
+    const optionsHtml = '<option value="">— Seleccionar operario —</option>' +
+        ops.map(o => `<option value="${o.id}">${o.id} · ${o.nombre}</option>`).join('');
+
+    document.getElementById('iluo-review-summary').innerHTML =
+        `<b>${totalImported}</b> matriz/matrices importadas · <b>${totalDeleted}</b> scores antiguos limpiados · ` +
+        `<b style="color:#f59e0b;">${unmatchedItems.length}</b> nombres pendientes de asignar`;
+
+    const list = document.getElementById('iluo-review-list');
+    list.innerHTML = unmatchedItems.map((item, idx) => `
+        <div class="iluo-review-row" id="iluo-row-${idx}"
+             style="display:flex; align-items:center; gap:0.6rem; padding:0.6rem 0;
+                    border-bottom:1px solid rgba(148,163,184,0.15);">
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:0.85rem;">${item.excelName}</div>
+                <div style="font-size:0.72rem; color:var(--text-secondary);">${item.seccion}</div>
+            </div>
+            <select class="form-input" id="iluo-sel-${idx}" style="flex:1; font-size:0.8rem; padding:0.35rem;">
+                ${optionsHtml}
+            </select>
+            <button class="btn-primary" style="padding:0.35rem 0.7rem; font-size:0.78rem;"
+                    onclick="resolverAsignacionIluo(${idx})">Asignar</button>
+            <button class="btn-secondary" style="padding:0.35rem 0.7rem; font-size:0.78rem;"
+                    onclick="omitirAsignacionIluo(${idx})">Omitir</button>
+        </div>
+    `).join('');
+
+    document.getElementById('iluo-review-modal').style.display = 'flex';
+}
+
+function closeIluoReviewModal() {
+    document.getElementById('iluo-review-modal').style.display = 'none';
+}
+
+async function resolverAsignacionIluo(idx) {
+    const item = _iluoReviewItems[idx];
+    const sel = document.getElementById(`iluo-sel-${idx}`);
+    if (!sel.value) {
+        showToast('Selecciona un operario del desplegable.', 'warning');
+        return;
+    }
+    try {
+        await aplicarAsignacionManual(item.matrixId, item.excelName, sel.value);
+        const row = document.getElementById(`iluo-row-${idx}`);
+        row.style.opacity = '0.45';
+        row.innerHTML = `<div style="font-size:0.82rem;">✓ <b>${item.excelName}</b> → <b>${sel.value}</b> (alias guardado)</div>`;
+        showToast(`Asignado a ${sel.value}. Se recordará en futuras importaciones.`, 'success');
+    } catch (err) {
+        console.error(err);
+        showToast('Error asignando: ' + err.message, 'error');
+    }
+}
+
+function omitirAsignacionIluo(idx) {
+    const item = _iluoReviewItems[idx];
+    const row = document.getElementById(`iluo-row-${idx}`);
+    row.style.opacity = '0.45';
+    row.innerHTML = `<div style="font-size:0.82rem; color:var(--text-secondary);">— <b>${item.excelName}</b> omitido (no se importan sus scores)</div>`;
+}
+
+/* ============================================================
+ * UTILIDAD ONE-TIME: purgar scores con IDs antiguos (3 letras)
+ * Ejecutar UNA VEZ desde la consola del navegador en Configuración:
+ *   await purgarScoresAntiguos()
+ * Borra todo skill_score cuyo idTrabajador NO sea de 5 dígitos,
+ * independientemente de la línea/sección donde se subiera.
+ * ============================================================ */
+
+async function purgarScoresAntiguos() {
+    const snap = await db.collection('skill_scores').get();
+    const viejos = snap.docs.filter(d => !/^\d{5}$/.test(d.data().idTrabajador || ''));
+    console.log(`Encontrados ${viejos.length} scores con ID antiguo de ${snap.size} totales.`);
+    if (viejos.length === 0) return 0;
+
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < viejos.length; i += BATCH_SIZE) {
+        const batch = db.batch();
+        viejos.slice(i, i + BATCH_SIZE).forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    }
+    console.log(`✓ ${viejos.length} scores antiguos eliminados.`);
+    return viejos.length;
+}
+
+
+
+
+async function loadData() {
+    if (typeof updateDbStatus === 'function') updateDbStatus(false);
+
+    try {
+        await Promise.all([
+            loadGlobalConfig(),
+            loadWorkers()
+        ]);
+        if (typeof updateDbStatus === 'function') updateDbStatus(true);
+    } catch (e) {
+        console.error("Error cargando configuración:", e);
+        showToast("Error crítico conectando a la base de datos.", "error");
+    }
+}
+
+// ----------------------------------------------------
+// 1. GESTIÓN DE VARIABLES GLOBALES (CONFIG)
+// ----------------------------------------------------
+async function loadGlobalConfig() {
+    try {
+        const configDoc = await db.collection('config').doc('global').get();
+        if (configDoc.exists) {
+            const data = configDoc.data();
+            if (data.tarifaETT) document.getElementById('config-tarifa').value = data.tarifaETT;
+            if (data.maxHorasFichaje) document.getElementById('config-max-horas').value = data.maxHorasFichaje;
+            if (data.umbralAutonomia) document.getElementById('config-umbral').value = data.umbralAutonomia;
+        } else {
+            // Valores por defecto sugeridos por los Agentes
+            document.getElementById('config-tarifa').value = 18.0;
+            document.getElementById('config-max-horas').value = 10;
+            document.getElementById('config-umbral').value = 10;
+            
+            // Creamos el documento inicial silenciosamente
+            await db.collection('config').doc('global').set({
+                tarifaETT: 18.0,
+                maxHorasFichaje: 10,
+                umbralAutonomia: 10,
+                updatedAt: new Date().toISOString()
+            });
+        }
+    } catch (e) {
+        console.error("Error leyendo config global:", e);
+    }
+}
+
+async function saveConfig(type) {
+    try {
+        const updates = { updatedAt: new Date().toISOString() };
+        
+        if (type === 'tarifa') {
+            const val = parseFloat(document.getElementById('config-tarifa').value);
+            if (isNaN(val) || val <= 0) return showToast("Por favor, introduce una tarifa válida mayor que 0.", "warning");
+            updates.tarifaETT = val;
+        } 
+        else if (type === 'planta') {
+            const maxH = parseFloat(document.getElementById('config-max-horas').value);
+            const umbral = parseFloat(document.getElementById('config-umbral').value);
+            
+            if (isNaN(maxH) || maxH <= 0 || isNaN(umbral) || umbral <= 0) {
+                return showToast("Las horas deben ser valores numéricos positivos.", "warning");
+            }
+            updates.maxHorasFichaje = maxH;
+            updates.umbralAutonomia = umbral;
+        }
+
+        // Merge actualiza solo los campos enviados
+        await db.collection('config').doc('global').set(updates, { merge: true });
+        
+        showToast("¡Configuración guardada con éxito!", "success");
+        
+    } catch (e) {
+        console.error("Error guardando config:", e);
+        showToast("Fallo al guardar la configuración.", "error");
+    }
+}
+
+
+// ----------------------------------------------------
+// 2. GESTIÓN DE PLANTILLA (CRUD OPERARIOS)
+// ----------------------------------------------------
+async function loadWorkers() {
+    try {
+        const snap = await db.collection('operarios').get();
+        operariosData = [];
+        snap.forEach(doc => {
+            operariosData.push({ id_doc: doc.id, ...doc.data() });
+        });
+        
+        // Ordenar numéricamente o alfabéticamente por ID
+        operariosData.sort((a, b) => (a.idTrabajador || a.id || '').localeCompare(b.idTrabajador || b.id || ''));
+        console.log("Operarios cargados desde Firebase:", operariosData.length);
+        
+        // Mostrar en la pantalla lo que ve el navegador
+        showToast("DEBUG: Encontrados " + operariosData.length + " operarios en Firebase", "info");
+
+        renderWorkersTable();
+    } catch (e) {
+        console.error("Error cargando operarios:", e);
+        showToast("DEBUG ERROR: " + e.message, "error");
+    }
+}
+
+function renderWorkersTable(filterText = '') {
+    const tbody = document.getElementById('workers-body');
+    tbody.innerHTML = '';
+
+    const filtered = operariosData.filter(w => {
+        const id = (w.idTrabajador || w.id || '').toLowerCase();
+        return id.includes(filterText);
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #94a3b8;">No se encontraron operarios.</td></tr>`;
+        return;
+    }
+
+    filtered.forEach(worker => {
+        const isEtt = worker.isETT || worker.agencia === 'EUROFIRMS' || worker.agencia === 'AURA';
+        const typeBadge = isEtt 
+            ? `<span class="badge badge-ett">ETT</span>` 
+            : `<span class="badge badge-stulz">STULZ</span>`;
+            
+        const agencia = worker.agencia ? worker.agencia : (isEtt ? 'Generica' : '--');
+        const seccionBadge = worker.seccionAsignada ? ` <span style="font-size:0.8rem; color:#94a3b8;">/ ${worker.seccionAsignada}</span>` : '';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-weight: 500;">${worker.idTrabajador || worker.id || '-'}</td>
+            <td style="font-weight: 500; color: #0f172a;">${worker.nombre || '<span style="color:#ef4444; font-size:0.8rem;">Falta Nombre</span>'}</td>
+            <td>${typeBadge}</td>
+            <td>${agencia}${seccionBadge}</td>
+            <td>
+                <button class="btn-secondary btn-small" onclick="editWorker('${worker.id_doc}')" style="margin-right: 0.5rem;" title="Editar operario">
+                    <i class="ph ph-pencil-simple"></i>
+                </button>
+                <button class="btn-danger" onclick="deleteWorker('${worker.id_doc}', '${worker.idTrabajador || worker.id || ''}')" title="Eliminar definitivamente">
+                    <i class="ph ph-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function toggleAgenciaField() {
+    const isEtt = document.getElementById('worker-is-ett').value === 'true';
+    document.getElementById('group-agencia').style.display = isEtt ? 'block' : 'none';
+}
+
+function openWorkerModal() {
+    document.getElementById('worker-form').reset();
+    document.getElementById('worker-doc-id').value = '';
+    document.getElementById('modal-title').innerText = 'Añadir Nuevo Operario';
+    toggleAgenciaField();
+    document.getElementById('worker-modal').style.display = 'flex';
+}
+
+function closeWorkerModal() {
+    document.getElementById('worker-modal').style.display = 'none';
+}
+
+function editWorker(docId) {
+    const worker = operariosData.find(w => w.id_doc === docId);
+    if (!worker) return;
+
+    document.getElementById('worker-doc-id').value = docId;
+    document.getElementById('worker-id').value = worker.idTrabajador || worker.id || '';
+    document.getElementById('worker-name').value = worker.nombre || '';
+    
+    const isEtt = worker.isETT || worker.agencia === 'EUROFIRMS' || worker.agencia === 'AURA';
+    document.getElementById('worker-is-ett').value = isEtt ? 'true' : 'false';
+    
+    toggleAgenciaField();
+    
+    if (isEtt) {
+        document.getElementById('worker-agencia').value = worker.agencia || 'OTRA';
+    }
+
+    document.getElementById('modal-title').innerText = 'Editar Operario';
+    document.getElementById('worker-modal').style.display = 'flex';
+}
+
+async function handleWorkerSubmit(e) {
+    e.preventDefault();
+    
+    const docId = document.getElementById('worker-doc-id').value;
+    const idTrabajador = document.getElementById('worker-id').value.toUpperCase();
+    const nombre = document.getElementById('worker-name').value;
+    const isEtt = document.getElementById('worker-is-ett').value === 'true';
+    const agencia = isEtt ? document.getElementById('worker-agencia').value : null;
+
+    if (!idTrabajador || !nombre) {
+        showToast("El ID y el Nombre son obligatorios.", "warning");
+        return;
+    }
+
+    const payload = {
+        idTrabajador: idTrabajador,
+        nombre: nombre,
+        isETT: isEtt,
+        agencia: agencia,
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        if (docId) {
+            // Edit
+            await db.collection('operarios').doc(docId).update(payload);
+        } else {
+            // Para mantener compatibilidad con algunos sitios que leen 'id', lo forzamos como doc ID
+            await db.collection('operarios').doc(idTrabajador).set(payload);
+        }
+        
+        closeWorkerModal();
+        await loadWorkers(); // Recargar tabla
+        
+        // Poka-Yoke Visual QA
+        showToast(`Operario con ID ${idTrabajador} guardado correctamente.`, "success");
+        
+    } catch (e) {
+        console.error("Error guardando operario:", e);
+        showToast("Fallo al guardar en la base de datos.", "error");
+    }
+}
+
+async function handleSyncLineas(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (typeof XLSX === 'undefined') {
+        showToast("Librería SheetJS no cargada.", "error");
+        e.target.value = '';
+        return;
+    }
+
+    try {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                showToast("Procesando archivo de líneas...", "info");
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+                if (rows.length < 2) {
+                    showToast("El archivo está vacío o mal formado", "error");
+                    return;
+                }
+                
+                // Encontrar headers
+                const headers = rows[0].map(h => String(h).toUpperCase().trim());
+                const nameIdx = headers.findIndex(h => h.includes('NOMBRE') || h.includes('OPERARIO'));
+                const lineaIdx = headers.findIndex(h => h.includes('LINEA') || h.includes('LÍNEA'));
+                
+                if (nameIdx === -1 || lineaIdx === -1) {
+                    showToast("No se encontró la columna 'Nombre' o 'Linea'", "error");
+                    return;
+                }
+
+                // Generar iniciales (3 letras)
+                function getInitials(fullName) {
+                    let parts = fullName.split(' ');
+                    if (parts.length >= 3) {
+                        // Formato: Nombre Apellido1 Apellido2
+                        return (parts[0].charAt(0) + parts[1].charAt(0) + parts[2].charAt(0)).toUpperCase();
+                    } else if (parts.length === 2) {
+                        return (parts[0].charAt(0) + parts[1].charAt(0) + parts[1].charAt(1)).toUpperCase();
+                    } else if (parts.length === 1) {
+                        return parts[0].substring(0, 3).toUpperCase();
+                    }
+                    return "";
+                }
+                
+                let count = 0;
+                let added = 0;
+                
+                const batches = [db.batch()];
+                let currentBatch = 0;
+                let opCount = 0;
+
+                const normalize = (str) => {
+                    if (!str) return '';
+                    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+                };
+                
+                // Iterar desde la fila 1 (datos)
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    const fullName = String(row[nameIdx]).trim();
+                    const linea = String(row[lineaIdx]).trim();
+                    
+                    if (!fullName || !linea) continue;
+                    
+                    // Convertir el nombre en el ID (3 letras)
+                    // Si el nombre viene en "APELLIDO, NOMBRE", hay que ajustarlo, pero parece ser "Luis Moreno Arenas" (Nombre Apellido1 Apellido2)
+                    let idTrabajador = "";
+                    if (fullName.includes(',')) {
+                        let p = fullName.split(',');
+                        let nom = (p[1].trim().split(' ')[0] || '').charAt(0);
+                        let ap = p[0].trim().split(' ');
+                        let a1 = (ap[0] || '').charAt(0);
+                        let a2 = ap.length > 1 ? ap[1].charAt(0) : (ap[0] || '').charAt(0);
+                        idTrabajador = (nom + a1 + a2).toUpperCase();
+                    } else {
+                        idTrabajador = getInitials(fullName);
+                    }
+                    
+                    if (!idTrabajador || idTrabajador.length !== 3) continue;
+                    
+                    // Buscar en operariosData si existe por ID o por nombre
+                    const normFullName = normalize(fullName);
+                    const existing = operariosData.find(w => 
+                        w.idTrabajador === idTrabajador || 
+                        w.id_doc === idTrabajador ||
+                        normalize(w.nombre) === normFullName
+                    );
+                    
+                    let ref;
+                    if (existing) {
+                        ref = db.collection('operarios').doc(existing.id_doc);
+                        batches[currentBatch].update(ref, { 
+                            lineaBase: linea,
+                            updatedAt: new Date().toISOString()
+                        });
+                        count++;
+                    }
+
+                    opCount++;
+                    if (opCount >= 450) { // Límite de seguridad para Firebase (max 500)
+                        batches.push(db.batch());
+                        currentBatch++;
+                        opCount = 0;
+                    }
+                }
+                
+                // Ejecutar todos los lotes
+                for (let b of batches) {
+                    await b.commit();
+                }
+                
+                await loadWorkers();
+                showToast(`Sincronización de líneas completada: ${count} actualizados.`, "success");
+
+            } catch (err) {
+                console.error(err);
+                showToast("Error importando: " + err.message, "error");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    } catch (e) {
+        showToast("Fallo al leer archivo", "error");
+    } finally {
+        e.target.value = '';
+    }
+}
+
+async function deleteWorker(docId, idTrabajador) {
+    // Usamos modal corporativo para evitar el warning pero mantenemos lógica
+    // Nota: Como no podemos inyectar dinámicamente texto en el shared modal actual fácilmente,
+    // usaremos el modal estándar que pregunta "¿Estás seguro...?"
     const confirmed = await showConfirmModal();
     if (confirmed) {
         try {
-            await db.collection('fichajes').doc(id).delete();
-            showToast("Registro eliminado", "info");
+            await db.collection('operarios').doc(docId).delete();
+            showToast(`Operario con ID ${idTrabajador} eliminado.`, "info");
+            await loadWorkers(); // Recargar
         } catch (e) {
-            console.error("Error eliminando registro: ", e);
-            showToast("Error al eliminar registro: " + e.message, "error");
+            console.error("Error borrando:", e);
+            showToast("No se pudo eliminar el operario.", "error");
         }
     }
 }
-
-async function updateRecordToFirebase(id, field, value) {
-    let parsedValue = value;
-    if (field === 'tiempo') {
-        parsedValue = Math.max(0, parseFloat(value)) || 0;
-        
-        // POKA-YOKE: Máximo de horas por turno según config
-        const maxHoras = (window.globalConfig && window.globalConfig.maxHorasFichaje) ? window.globalConfig.maxHorasFichaje : 10;
-        
-        if (parsedValue > maxHoras) {
-            showToast(`⚠️ Poka-Yoke: Máximo ${maxHoras} horas permitidas por turno.`, "error");
-            parsedValue = maxHoras;
-            // Actualizar visualmente el input si es posible (en el siguiente refresco se arreglará, pero forzamos por si acaso)
-            const row = document.querySelector(`tr[data-id="${id}"]`);
-            if(row) {
-                const input = row.querySelector('.calc-time');
-                if(input) input.value = maxHoras;
-            }
-        }
-    } else if (field === 'trabajador') {
-        parsedValue = value.trim().toUpperCase();
-        // POKA-YOKE: Validar que el trabajador existe
-        if (parsedValue !== "" && validWorkerIds.length > 0 && !validWorkerIds.includes(parsedValue)) {
-            showToast("⚠️ Poka-Yoke: ID Trabajador no existe en la BD.", "error");
-            parsedValue = "";
-            const row = document.querySelector(`tr[data-id="${id}"]`);
-            if(row) {
-                const input = row.querySelector('input[data-field="trabajador"]');
-                if(input) input.value = "";
-            }
-        }
-    } else if (field === 'of') {
-        // [POKA-YOKE Industria 4.0] Normalizar OF: mayúsculas, sin espacios, sin caracteres extraños
-        parsedValue = value.trim().toUpperCase().replace(/\s+/g, '');
-    }
-    
-    try {
-        await db.collection('fichajes').doc(id).update({
-            [field]: parsedValue
-        });
-        // [UX Industria 4.0] Indicador visual: la fila parpadea en verde al guardar
-        const row = document.querySelector(`tr[data-id="${id}"]`);
-        if (row) {
-            row.classList.add('row-saved');
-            setTimeout(() => row.classList.remove('row-saved'), 1500);
-        }
-    } catch (e) {
-        console.error("Error actualizando registro: ", e);
-        showToast("Error al guardar cambio: " + e.message, "error");
-    }
-}
-
-// Evaluar e indicar visualmente la validez de los campos obligatorios
-function validateCell(input) {
-    const field = input.getAttribute('data-field');
-    if (field === 'trabajador' || field === 'of' || field === 'linea' || field === 'departamento' || field === 'maquina') {
-        const val = (input.value || '').trim();
-        if (val === '') {
-            input.classList.add('invalid-cell');
-            input.classList.remove('valid-cell');
-        } else {
-            input.classList.add('valid-cell');
-            input.classList.remove('invalid-cell');
-        }
-    }
-}
-
-// Función pura para obtener máquinas disponibles según la matriz
-function getAvailableMachines(linea, departamento) {
-    if (!departamento || !window.skillMatrices) return [];
-    
-    // Normalizar para evitar problemas de mayúsculas o acentos
-    const normalize = (str) => String(str).trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    
-    const recDepto = normalize(departamento);
-    
-    if (linea) {
-        const recLinea = normalize(linea);
-        const matchMatrix = window.skillMatrices.find(m => 
-            normalize(m.linea) === recLinea && 
-            normalize(m.seccion) === recDepto
-        );
-        if (matchMatrix && matchMatrix.tareas && matchMatrix.tareas.length > 0) {
-            return matchMatrix.tareas;
-        }
-    }
-    
-    // Fallback: Si no ha elegido línea aún, o si la línea elegida no tiene matriz propia importada,
-    // agrupar todas las tareas de ese departamento de cualquier matriz que sí esté subida.
-    const matchingMatrices = window.skillMatrices.filter(m => normalize(m.seccion) === recDepto);
-    const allTasks = new Set();
-    matchingMatrices.forEach(m => {
-        if (m.tareas) m.tareas.forEach(t => allTasks.add(t));
-    });
-    return Array.from(allTasks).sort();
-}
-
-function appendRowToTable(record) {
-    const tbody = document.getElementById('table-body');
-    const tr = document.createElement('tr');
-    tr.setAttribute('data-id', record.id);
-    
-    const availableTasks = getAvailableMachines(record.linea, record.departamento);
-    
-    tr.innerHTML = `
-        <td class="td-input"><input type="text" class="cell-input" data-field="trabajador" list="workers-list" value="${record.trabajador || ''}" placeholder="ID Trabajador..."></td>
-        <td class="td-input"><input type="text" class="cell-input" data-field="of" value="${record.of || ''}" placeholder="Nº OF..."></td>
-        <td class="td-input">
-            <select class="cell-input" data-field="departamento">
-                ${departamentos.map(d => `<option value="${d}" ${record.departamento === d ? 'selected' : (d==='' && !record.departamento ? 'selected' : '')}>${d || 'SELECCIONE...'}</option>`).join('')}
-            </select>
-        </td>
-        <td class="td-input">
-            <select class="cell-input" data-field="maquina">
-                <option value="">SELECCIONE...</option>
-                ${availableTasks.map(t => `<option value="${t}" ${record.maquina === t ? 'selected' : ''}>${t}</option>`).join('')}
-                ${(record.maquina && !availableTasks.includes(record.maquina)) ? `<option value="${record.maquina}" selected>${record.maquina}</option>` : ''}
-            </select>
-        </td>
-        <td class="td-input">
-            <select class="cell-input" data-field="linea">
-                ${lines.map(l => `<option value="${l}" ${record.linea === l ? 'selected' : (l==='' && !record.linea ? 'selected' : '')}>${l || 'SELECCIONE...'}</option>`).join('')}
-            </select>
-        </td>
-        <td class="td-input"><input type="date" class="cell-input" data-field="fecha" value="${record.fecha || ''}" disabled title="Fecha automática calculada por el sistema"></td>
-        <td class="td-input"><input type="number" step="0.5" min="0" class="cell-input calc-time" data-field="tiempo" value="${record.tiempo || ''}" placeholder="0.0"></td>
-        <td class="td-input" style="text-align: center; vertical-align: middle;">
-            <div class="skill-indicator skill-unknown" data-worker-id="${record.trabajador || ''}" data-machine-id="${record.maquina || ''}">-</div>
-        </td>
-        <td class="td-actions">
-            <button class="btn-delete" title="Eliminar fila">
-                <i class="ph ph-trash"></i>
-            </button>
-        </td>
-    `;
-    
-    tbody.appendChild(tr);
-    attachEventListenersToRow(tr, record.id);
-}
-
-function updateRowInTable(record) {
-    const tr = document.querySelector(`tr[data-id="${record.id}"]`);
-    if (!tr) return;
-    
-    const inputs = tr.querySelectorAll('.cell-input');
-    inputs.forEach(input => {
-        // POKA-YOKE UX: No sobrescribir el valor si el elemento tiene el foco
-        if (document.activeElement !== input) {
-            const field = input.getAttribute('data-field');
-            if (input.value != record[field] && record[field] !== undefined) {
-                input.value = record[field];
-            }
-            validateCell(input);
-        }
-    });
-    
-    // Sincronizar también el indicador visual ILUO
-    updateSkillIndicator(tr, record);
-}
-
-function removeRowFromTable(id) {
-    const tr = document.querySelector(`tr[data-id="${id}"]`);
-    if (tr) {
-        tr.classList.add('row-fade-out');
-        setTimeout(() => {
-            tr.remove();
-        }, 300);
-    }
-}
-
-function updateSkillIndicator(tr, record) {
-    try {
-        const indicator = tr.querySelector('.skill-indicator');
-        if (!indicator) return;
-        
-        if (!record || !record.trabajador || !record.maquina || !record.linea || !record.departamento) {
-            indicator.className = 'skill-indicator skill-unknown';
-            indicator.textContent = '-';
-            indicator.title = 'Falta ID, Línea, Sección o Máquina';
-            return;
-        }
-
-        const workerData = window.skillScores[record.trabajador.toUpperCase()];
-        let nivel = null;
-        if (workerData) {
-            const match = workerData.find(d => 
-                d.linea === record.linea && 
-                d.seccion.toUpperCase() === record.departamento.toUpperCase()
-            );
-            if (match && match.scores && match.scores[record.maquina] !== undefined) {
-                nivel = match.scores[record.maquina];
-            }
-        }
-        
-        if (nivel !== null && nivel > 0) {
-            indicator.className = `skill-indicator skill-lvl-${nivel}`;
-            indicator.textContent = nivel;
-            indicator.title = `Nivel ILUO: ${nivel}`;
-        } else {
-            indicator.className = 'skill-indicator skill-unknown';
-            indicator.textContent = '?';
-            indicator.title = 'No hay datos en la matriz para este operario en esta máquina';
-        }
-    } catch (e) {
-        console.error("Error en updateSkillIndicator", e);
-    }
-}
-
-function attachEventListenersToRow(tr, id) {
-    const record = trainingRecords.find(r => r.id === id);
-    if (record) updateSkillIndicator(tr, record);
-
-    tr.querySelectorAll('.cell-input').forEach(input => {
-        validateCell(input);
-
-        // Al editar cualquier campo
-        if (input.type === 'number' || input.type === 'text' || input.type === 'date') {
-            input.addEventListener('input', (e) => {
-                const field = e.target.getAttribute('data-field');
-                const record = trainingRecords.find(r => r.id === id);
-                if (record) {
-                    record[field] = field === 'tiempo' ? (parseFloat(e.target.value) || 0) : e.target.value;
-                    if (field === 'tiempo') calculateTotal();
-                }
-                validateCell(e.target);
-            });
-        }
-        
-        // Atajo teclado: Enter en campo de tiempo
-        if (input.type === 'number') {
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const record = trainingRecords.find(r => r.id === id);
-                    if (record && (record.trabajador||'').trim() !== '' && (record.of||'').trim() !== '' && record.tiempo > 0 && (record.linea||'') !== '' && (record.departamento||'') !== '' && (record.maquina||'') !== '') {
-                        addRow();
-                    } else {
-                        showToast("Faltan campos obligatorios (Operario, OF, Línea, Departamento, Máquina, Horas)", "warning");
-                    }
-                }
-            });
-        }
-
-        // Al cambiar valor o perder el foco
-        input.addEventListener('change', (e) => {
-            const field = e.target.getAttribute('data-field');
-            let val = e.target.value;
-            
-            if (field === 'trabajador') {
-                val = val.trim().toUpperCase();
-                if (/^\d{3}$/.test(val)) {
-                    val = "00" + val;
-                }
-                e.target.value = val;
-            } else if (field === 'of') {
-                val = val.trim();
-                e.target.value = val;
-            } else if (field === 'tiempo') {
-                let num = Math.max(0, parseFloat(val)) || 0;
-                val = num;
-                e.target.value = val === 0 ? '' : val;
-            }
-            
-            updateRecordToFirebase(id, field, val);
-            validateCell(e.target);
-            
-            const record = trainingRecords.find(r => r.id === id);
-            if (record) {
-                record[field] = val; // Actualizar memoria local rápido
-                
-                // Si cambia departamento o línea, actualizar lista de máquinas
-                if (field === 'departamento' || field === 'linea') {
-                    const maquinaSelect = tr.querySelector('select[data-field="maquina"]');
-                    if (maquinaSelect && window.skillMatrices) {
-                        const availableTasks = getAvailableMachines(record.linea, record.departamento);
-                        const currentValue = record.maquina;
-                        
-                        maquinaSelect.innerHTML = `<option value="">SELECCIONE...</option>` + 
-                            availableTasks.map(t => `<option value="${t}">${t}</option>`).join('');
-                        
-                        if (availableTasks.includes(currentValue)) {
-                            maquinaSelect.value = currentValue;
-                        } else {
-                            maquinaSelect.value = '';
-                            record.maquina = '';
-                            updateRecordToFirebase(id, 'maquina', '');
-                        }
-                    }
-                }
-                
-                // Si cambia operario o máquina, recalcular indicador ILUO
-                if (field === 'trabajador' || field === 'maquina' || field === 'departamento' || field === 'linea') {
-                    updateSkillIndicator(tr, record);
-                }
-            }
-        });
-    });
-    
-    // Enfocar el input de trabajador en las filas nuevas
-    const firstInput = tr.querySelector('input[data-field="trabajador"]');
-    if (firstInput && trainingRecords.length > 1) {
-        firstInput.focus();
-    }
-    
-    tr.querySelector('.btn-delete').addEventListener('click', () => {
-        removeRow(id);
-    });
-}
-
-function calculateTotal() {
-    const total = trainingRecords.reduce((sum, r) => sum + (parseFloat(r.tiempo) || 0), 0);
-    const totalElement = document.getElementById('total-horas-formacion');
-    if (totalElement) {
-        totalElement.textContent = total.toFixed(2);
-    }
-
-} 
-// FIN app.js

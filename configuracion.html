@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STULZ - Configuración Global</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar inyectado dinámicamente -->
+        <aside id="sidebar-container"></aside>
+
+        <!-- Espacio de Trabajo Principal -->
+        <div class="workspace">
+            <header class="workspace-header">
+                <div class="workspace-title">
+                    <h1>Configuración Global</h1>
+                    <p class="subtitle">Administración de reglas de negocio y gestión de plantilla</p>
+                </div>
+            </header>
+
+            <div class="config-layout">
+                <!-- Columna Izquierda: Variables Globales -->
+                <div class="config-column">
+                    
+                    <!-- Panel Finanzas -->
+                    <div class="config-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="ph ph-currency-eur panel-icon"></i>
+                            <h3>Variables Financieras</h3>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label for="config-tarifa">Tarifa Media ETT (€/hora)</label>
+                                <input type="number" id="config-tarifa" class="form-input" step="0.1" placeholder="Ej: 18.0">
+                                <span class="input-help">Se usa para calcular los costes de la curva de aprendizaje.</span>
+                            </div>
+                            <button class="btn-primary" onclick="saveConfig('tarifa')">Guardar Tarifa</button>
+                        </div>
+                    </div>
+
+                    <!-- Panel Reglas de Planta -->
+                    <div class="config-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="ph ph-factory panel-icon"></i>
+                            <h3>Reglas de Planta (Poka-Yokes)</h3>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label for="config-max-horas">Límite Máximo de Horas (por registro)</label>
+                                <input type="number" id="config-max-horas" class="form-input" placeholder="Ej: 10">
+                                <span class="input-help">Bloquea la inserción si el operario supera este tope.</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="config-umbral">Umbral de Autonomía (Horas)</label>
+                                <input type="number" id="config-umbral" class="form-input" placeholder="Ej: 10">
+                                <span class="input-help">Horas necesarias para que la matriz marque color Verde.</span>
+                            </div>
+                            <button class="btn-primary" onclick="saveConfig('planta')">Guardar Reglas</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Columna Centro/Izquierda: Importador Excel -->
+                <div class="config-column">
+                    <div class="config-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="ph ph-file-xls panel-icon"></i>
+                            <h3>Importar Matriz ILUO</h3>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label for="iluo-linea">Línea de Destino</label>
+                                <select id="iluo-linea" class="form-input">
+                                    <option value="L1">Línea 1</option>
+                                    <option value="L2">Línea 2</option>
+                                    <option value="L3">Línea 3</option>
+                                    <option value="L4">Línea 4</option>
+                                    <option value="SAT">SAT</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="iluo-seccion">Sección</label>
+                                <select id="iluo-seccion" class="form-input">
+                                    <option value="MONTAJE MECÁNICO">Montaje Mecánico</option>
+                                    <option value="MONTAJE ELÉCTRICO">Montaje Eléctrico</option>
+                                    <option value="BATERÍAS">Baterías</option>
+                                    <option value="TRANSFORMACIÓN METÁLICA">Transformación Metálica</option>
+                                    <option value="PERFILERÍA Y SOLDADURA">Perfilería y Soldadura</option>
+                                    <option value="LOGÍSTICA">Logística</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="iluo-file">Archivos Excel (.xlsx) — puedes seleccionar varios</label>
+                                <input type="file" id="iluo-file" accept=".xlsx,.xls" multiple class="form-input" style="padding: 0.5rem;">
+                            </div>
+                            <div id="iluo-preview" style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;"></div>
+                            <button class="btn-primary" id="btn-import-iluo" style="width: 100%;"><i class="ph ph-upload"></i> Importar Matriz</button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Subida de Fotos -->
+                    <div class="config-panel glass-panel" style="margin-top: 1.5rem;">
+                        <div class="panel-header">
+                            <i class="ph ph-camera panel-icon"></i>
+                            <h3>Foto Carta FIFA (RRHH)</h3>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label for="photo-worker-id">ID Operario</label>
+                                <input type="text" id="photo-worker-id" class="form-input" placeholder="Ej: 042 o JSM" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="photo-file">Foto Carnet (.jpg, .png)</label>
+                                <input type="file" id="photo-file" accept="image/png, image/jpeg" class="form-input" style="padding: 0.5rem;" required>
+                            </div>
+                            <!-- Canvas oculto para compresin -->
+                            <canvas id="photo-canvas" style="display:none;"></canvas>
+                            <div id="photo-preview" style="text-align:center; margin-bottom: 1rem; display:none;">
+                                <img id="photo-img-preview" src="" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 2px solid var(--stulz-red);">
+                            </div>
+                            <button class="btn-primary" id="btn-upload-photo" style="width: 100%;"><i class="ph ph-cloud-arrow-up"></i> Guardar Foto</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Columna Derecha: Gestión de Operarios -->
+                <div class="config-column wide-column">
+                    <div class="config-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="ph ph-users-three panel-icon"></i>
+                            <h3>Gestión de Plantilla Maestra</h3>
+                            <div style="display:flex; gap:0.5rem;">
+                                <input type="file" id="import-operarios-file" accept=".xlsx, .xls" style="display:none">
+                                <button class="btn-secondary btn-small" onclick="document.getElementById('import-operarios-file').click()">
+                                    <i class="ph ph-upload-simple"></i> Importar Excel
+                                </button>
+                                <button class="btn-secondary btn-small" onclick="openWorkerModal()">+ Nuevo Operario</button>
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div class="table-controls" style="display: flex; gap: 1rem; align-items: center; justify-content: space-between;">
+                                <input type="text" id="search-worker" class="form-input search-input" placeholder="Buscar por ID..." style="flex: 1;">
+                                <label class="btn-secondary btn-small" style="cursor: pointer; margin: 0;" title="Sube el archivo Excel de Líneas (Operarios_Lineas)">
+                                    <i class="ph ph-arrows-clockwise"></i> Sincronizar Líneas
+                                    <input type="file" id="sync-lineas-file" accept=".xlsx,.xls" style="display: none;">
+                                </label>
+                            </div>
+                            <div class="table-container">
+                                <table class="data-table" id="workers-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID Operario</th>
+                                            <th>Nombre</th>
+                                            <th>Tipo</th>
+                                            <th>Agencia / Sección</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="workers-body">
+                                        <!-- Se llena con JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Formulario Operario -->
+    <div id="worker-modal" class="modal-overlay">
+        <div class="modal-content glass-panel">
+            <h3 id="modal-title">Añadir Operario</h3>
+            <form id="worker-form">
+                <input type="hidden" id="worker-doc-id">
+                <div class="form-group">
+                    <label>ID Trabajador (3 Dígitos)</label>
+                    <input type="text" id="worker-id" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre Completo</label>
+                    <input type="text" id="worker-name" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Empleado</label>
+                    <select id="worker-is-ett" class="form-input" onchange="toggleAgenciaField()">
+                        <option value="false">Plantilla STULZ</option>
+                        <option value="true">Personal ETT</option>
+                    </select>
+                </div>
+                <div class="form-group" id="group-agencia" style="display: none;">
+                    <label>Agencia</label>
+                    <select id="worker-agencia" class="form-input">
+                        <option value="">Seleccionar...</option>
+                        <option value="EUROFIRMS">Eurofirms</option>
+                        <option value="AURA">Aura</option>
+                        <option value="OTRA">Otra</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeWorkerModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Revisión Importación ILUO -->
+    <div id="iluo-review-modal" class="modal-overlay">
+        <div class="modal-content glass-panel" style="max-width: 640px; max-height: 85vh; overflow-y: auto;">
+            <h3><i class="ph ph-user-focus"></i> Revisión de importación ILUO</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Estos nombres de la matriz no se han podido asociar automáticamente a ningún operario.
+                Asígnalos manualmente (se recordará para futuras importaciones) u omítelos si la persona ya no está en plantilla.
+            </p>
+            <div id="iluo-review-summary" style="font-size: 0.85rem; margin-bottom: 1rem; padding: 0.6rem 0.8rem; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25);"></div>
+            <div id="iluo-review-list"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeIluoReviewModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    
+    <script src="../components/sidebar.js"></script>
+    <script src="../shared.js"></script>
+    <!-- Lógica de la Aplicación -->
+    <!-- SheetJS (Excel Parser) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="js/excel.js"></script>
+    <script src="js/photos.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
