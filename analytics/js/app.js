@@ -1,189 +1,199 @@
-// analytics/js/app.js - Analytics & Business Intelligence
+// analytics/js/app.js - Business Intelligence & ILUO Cost Analysis
+let chartTopOFs = null;
+let chartIluoDist = null;
 
-let ofBarChartInstance = null;
-let trainingPieChartInstance = null;
+let TARIFA_BASE = 20; // 20€/h por defecto si no hay tarifa ETT
+let trainingThreshold = 2; // Niveles 1 y 2 = Formación/Muda
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Iniciar reloj (shared.js) si existe
+    // Iniciar reloj (shared.js)
     if (typeof updateClock === 'function') {
         setInterval(updateClock, 1000);
         updateClock();
     }
 
-    // Configurar el buscador de OF
-    const btnSearch = document.getElementById('btn-search-of');
-    const inputSearch = document.getElementById('of-search-input');
-    
-    if (btnSearch && inputSearch) {
-        btnSearch.addEventListener('click', () => searchOF(inputSearch.value));
-        inputSearch.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') searchOF(inputSearch.value);
-        });
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = '#94a3b8';
+
+    const btnCalculate = document.getElementById('btn-calculate');
+    if (btnCalculate) {
+        btnCalculate.addEventListener('click', calculateFinancials);
     }
 
-    // Cargar los datos globales de formación al iniciar
-    await loadGlobalTrainingData();
+    // Inicializar visualización
+    await loadConfig();
+    await calculateFinancials();
 });
 
-// Estilos globales Chart.js
-Chart.defaults.font.family = "'Inter', sans-serif";
-Chart.defaults.color = '#64748b';
-
-/**
- * MÓDULO 1: Distribución Global de Formación
- */
-async function loadGlobalTrainingData() {
+async function loadConfig() {
     try {
-        if (typeof updateDbStatus === 'function') updateDbStatus(false);
+        const configDoc = await db.collection('configuracion').doc('global').get();
+        if (configDoc.exists) {
+            const data = configDoc.data();
+            if (data.tarifaETT) {
+                TARIFA_BASE = parseFloat(data.tarifaETT);
+            }
+        }
+        // El KPI de tarifa ya no se muestra en el dashboard
+    } catch (e) {
+        console.error("Error cargando configuración:", e);
+    }
+}
+
+async function calculateFinancials() {
+    const btn = document.getElementById('btn-calculate');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Calculando...';
+    }
+
+    try {
+        const lineaFilter = document.getElementById('filter-linea').value;
+        // Por simplificar, si hay filtro de mes lo usaríamos (formato YYYY-MM)
+        // const monthFilter = document.getElementById('filter-month').value;
+
+        // 1. Obtener todos los scores de ILUO
+        let scoresQuery = db.collection('skill_scores');
+        if (lineaFilter) {
+            scoresQuery = scoresQuery.where('linea', '==', lineaFilter);
+        }
+        const scoresSnap = await scoresQuery.get();
         
+        // workerId -> { seccion -> averageLevel }
+        const workerAverages = {}; 
+        let totalWorkersAnalized = 0;
+        let countProductivos = 0; // Niveles >= 3
+        let countAprendices = 0; // Niveles < 3
+
+        scoresSnap.forEach(doc => {
+            const data = doc.data();
+            const wId = data.idTrabajador;
+            const sec = data.seccion.toUpperCase();
+            const scoresObj = data.scores || {};
+            
+            const taskValues = Object.values(scoresObj);
+            if (taskValues.length > 0) {
+                const avg = taskValues.reduce((a, b) => a + b, 0) / taskValues.length;
+                if (!workerAverages[wId]) workerAverages[wId] = {};
+                workerAverages[wId][sec] = avg;
+
+                if (avg > trainingThreshold) countProductivos++;
+                else countAprendices++;
+            }
+        });
+        totalWorkersAnalized = countProductivos + countAprendices;
+
+        // 2. Obtener todos los fichajes (lo ideal en prod es acotar por fecha, pero esto es un MVP)
         const fichajesSnap = await db.collection('fichajes').get();
         
-        let totalGlobal = 0;
-        const horasPorDept = {};
+        // Estructuras de datos para los KPIs
+        let totalCoste = 0;
+        let totalHorasMuda = 0;
+        const costByOF = {};
+        const workerDetails = []; // Para la tabla
 
         fichajesSnap.forEach(doc => {
             const data = doc.data();
-            const dept = data.departamento || 'Sin asignar';
-            const h = parseFloat(data.tiempo) || 0;
+            const workerId = String(data.operario || data.trabajador || '').trim().toUpperCase(); 
+            const ofNum = data.of || 'SIN OF';
+            const dept = (data.departamento || '').toUpperCase();
+            const horas = parseFloat(data.tiempo) || 0;
+
+            if (horas <= 0) return;
+
+            // Para saber si el operario es aprendiz, miramos su nota en `skill_scores` para su sección
+            // Si no tiene nota en la sección, no podemos asumir Muda de forma segura, o asumimos 0 (aprendiz).
+            // Por conservadurismo financiero, si no está en la matriz, asumimos que NO está formado (Nivel 1).
+            let avgLevel = 1; 
             
-            horasPorDept[dept] = (horasPorDept[dept] || 0) + h;
-            totalGlobal += h;
-        });
-
-        // Actualizar UI
-        document.getElementById('res-global-hours').textContent = totalGlobal.toFixed(1) + 'h';
-        renderTrainingPieChart(horasPorDept);
-        
-        if (typeof updateDbStatus === 'function') updateDbStatus(true);
-    } catch (e) {
-        console.error("Error al cargar datos globales:", e);
-    }
-}
-
-function renderTrainingPieChart(horasPorDept) {
-    const ctx = document.getElementById('trainingPieChart').getContext('2d');
-    
-    if (trainingPieChartInstance) trainingPieChartInstance.destroy();
-
-    const labels = Object.keys(horasPorDept);
-    const dataValues = Object.values(horasPorDept);
-    const backgroundColors = [
-        '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6366f1', '#ec4899'
-    ];
-
-    trainingPieChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: dataValues,
-                backgroundColor: labels.map((_, i) => backgroundColors[i % backgroundColors.length]),
-                borderWidth: 2,
-                borderColor: '#ffffff'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '60%',
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        padding: 20,
-                        usePointStyle: true,
-                        font: {
-                            size: 11
-                        }
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const value = context.parsed;
-                            return ` ${value.toFixed(1)} horas`;
-                        }
-                    }
+            // Intentar extraer el ID de 3 letras del operario si es que viene como nombre completo
+            let safeWorkerId = workerId;
+            if (workerId.length > 3 && workerId.includes(',')) {
+                // Intento traducir "APELLIDOS, NOMBRE" a ID
+                let p = workerId.split(',');
+                if (p.length === 2) {
+                    let nom = (p[1].trim().split(' ')[0] || '').charAt(0);
+                    let ap = p[0].trim().split(' ');
+                    let a1 = (ap[0] || '').charAt(0);
+                    let a2 = ap.length > 1 ? ap[1].charAt(0) : (ap[0] || '').charAt(0);
+                    safeWorkerId = (nom + a1 + a2).toUpperCase();
                 }
             }
-        }
-    });
-}
 
-/**
- * MÓDULO 2: Coste por Orden de Fabricación (OF)
- */
-async function searchOF(ofValue) {
-    const ofName = ofValue.trim().toUpperCase();
-    if (!ofName) return;
-    
-    const inputEl = document.getElementById('of-search-input');
-    const btnEl = document.getElementById('btn-search-of');
-    
-    try {
-        inputEl.disabled = true;
-        btnEl.textContent = "Buscando...";
-        
-        const fichajesRef = db.collection('fichajes');
-        const snapshot = await fichajesRef.where('of', '==', ofName).get();
-        
-        const emptyState = document.getElementById('of-empty-state');
-        const resultsContainer = document.getElementById('of-results-container');
-        
-        if (snapshot.empty) {
-            if (typeof showToast === 'function') showToast(`No se encontraron registros para: ${ofName}`);
-            emptyState.style.display = 'block';
-            resultsContainer.style.display = 'none';
-            return;
-        }
+            if (workerAverages[safeWorkerId] && workerAverages[safeWorkerId][dept]) {
+                avgLevel = workerAverages[safeWorkerId][dept];
+            } else if (workerAverages[workerId] && workerAverages[workerId][dept]) {
+                avgLevel = workerAverages[workerId][dept];
+            }
 
-        let totalOF = 0;
-        const horasPorDept = {};
+            // Aplicar regla de negocio (Muda)
+            if (avgLevel <= trainingThreshold) {
+                const costeFichaje = horas * TARIFA_BASE;
+                totalCoste += costeFichaje;
+                totalHorasMuda += horas;
 
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            const dept = data.departamento || 'Sin asignar';
-            const h = parseFloat(data.tiempo) || 0;
-            
-            horasPorDept[dept] = (horasPorDept[dept] || 0) + h;
-            totalOF += h;
+                costByOF[ofNum] = (costByOF[ofNum] || 0) + costeFichaje;
+
+                workerDetails.push({
+                    operario: safeWorkerId.length === 3 ? safeWorkerId : workerId,
+                    of: ofNum,
+                    seccion: dept,
+                    nivel: avgLevel.toFixed(1),
+                    horas: horas.toFixed(1),
+                    coste: costeFichaje.toFixed(2)
+                });
+            }
         });
 
-        // Actualizar UI
-        document.getElementById('res-of-name').textContent = ofName;
-        document.getElementById('res-of-hours').textContent = totalOF.toFixed(1) + 'h';
+        // Actualizar KPIs de Arriba
+        document.getElementById('kpi-coste-total').textContent = `${totalCoste.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €`;
+        document.getElementById('kpi-horas-total').textContent = `${totalHorasMuda.toFixed(1)} h`;
         
-        emptyState.style.display = 'none';
-        resultsContainer.style.display = 'block';
-        
-        renderOFBarChart(horasPorDept);
+        let pctAutonomia = 0;
+        if (totalWorkersAnalized > 0) {
+            pctAutonomia = Math.round((countProductivos / totalWorkersAnalized) * 100);
+        }
+        document.getElementById('kpi-autonomia').textContent = `${pctAutonomia}%`;
+
+        // Gráfico 1: Top OFs
+        const sortedOFs = Object.entries(costByOF).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        renderTopOFChart(sortedOFs);
+
+        // Gráfico 2: Distribución
+        renderDistChart(countProductivos, countAprendices);
+
+        // Tabla Detalles
+        renderTable(workerDetails);
 
     } catch (e) {
-        console.error("Error buscando OF:", e);
-        if (typeof showToast === 'function') showToast("Ocurrió un error al buscar la OF.");
+        console.error("Error calculando analíticas:", e);
+        if (typeof showToast === 'function') showToast("Error calculando costes", "error");
     } finally {
-        inputEl.disabled = false;
-        btnEl.textContent = "Buscar Costes";
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> Calcular';
+        }
     }
 }
 
-function renderOFBarChart(horasPorDept) {
-    const ctx = document.getElementById('ofBarChart').getContext('2d');
-    
-    if (ofBarChartInstance) ofBarChartInstance.destroy();
+function renderTopOFChart(sortedData) {
+    const ctx = document.getElementById('chart-top-ofs').getContext('2d');
+    if (chartTopOFs) chartTopOFs.destroy();
 
-    const labels = Object.keys(horasPorDept);
-    const dataValues = Object.values(horasPorDept);
+    const labels = sortedData.map(d => d[0]);
+    const values = sortedData.map(d => d[1]);
 
-    ofBarChartInstance = new Chart(ctx, {
+    chartTopOFs = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Horas Imputadas',
-                data: dataValues,
-                backgroundColor: 'rgba(192, 27, 34, 0.8)', // Stulz Red
-                borderRadius: 4
+                label: 'Coste Formación (€)',
+                data: values,
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderColor: '#ef4444',
+                borderWidth: 1,
+                borderRadius: 6
             }]
         },
         options: {
@@ -191,22 +201,79 @@ function renderOFBarChart(horasPorDept) {
             maintainAspectRatio: false,
             scales: {
                 y: {
-                    beginAtZero: true,
-                    grid: { color: '#f1f5f9' },
-                    title: {
-                        display: true,
-                        text: 'Horas Totales'
-                    }
+                    grid: { color: 'rgba(51, 65, 85, 0.5)' },
+                    ticks: { callback: (val) => val + ' €' }
                 },
                 x: {
                     grid: { display: false }
                 }
             },
             plugins: {
-                legend: {
-                    display: false
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} €`
+                    }
                 }
             }
         }
+    });
+}
+
+function renderDistChart(productivos, aprendices) {
+    const ctx = document.getElementById('chart-iluo-dist').getContext('2d');
+    if (chartIluoDist) chartIluoDist.destroy();
+
+    chartIluoDist = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Productivos (Nivel 3-4)', 'Aprendices / Muda (Nivel 1-2)'],
+            datasets: [{
+                data: [productivos, aprendices],
+                backgroundColor: ['rgba(16, 185, 129, 0.8)', 'rgba(239, 68, 68, 0.8)'],
+                borderColor: '#1e293b',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+}
+
+function renderTable(details) {
+    const tbody = document.getElementById('table-details-body');
+    tbody.innerHTML = '';
+    
+    // Ordenar de mayor a menor coste
+    details.sort((a, b) => parseFloat(b.coste) - parseFloat(a.coste));
+    
+    // Coger top 20 para no saturar
+    const top20 = details.slice(0, 20);
+    
+    if (top20.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No hay registros de costes de formación</td></tr>`;
+        return;
+    }
+
+    top20.forEach(row => {
+        let nivelBadgeClass = 'badge-danger';
+        if (parseFloat(row.nivel) > 1.5) nivelBadgeClass = 'badge-warning';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${row.operario}</strong></td>
+            <td>${row.of}</td>
+            <td>${row.seccion}</td>
+            <td><span class="badge ${nivelBadgeClass}">Lvl ${row.nivel}</span></td>
+            <td>${row.horas} h</td>
+            <td style="color: #ef4444; font-weight: 700;">${parseFloat(row.coste).toLocaleString('es-ES', {minimumFractionDigits: 2})} €</td>
+        `;
+        tbody.appendChild(tr);
     });
 }

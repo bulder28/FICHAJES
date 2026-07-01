@@ -3,112 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STULZ - Analytics & Business Intelligence</title>
+    <title>STULZ - Analítica y Costes de Formación</title>
     
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Estilos Globales -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- Estilos Específicos del Dashboard Premium -->
+    <link rel="stylesheet" href="css/style.css">
     
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
-    <!-- Chart.js -->
+    <!-- Chart.js para los gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="../style.css">
-    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="app-layout">
-        <!-- Sidebar inyectado dinámicamente -->
-        <aside id="sidebar-container"></aside>
-
-        <!-- Espacio de Trabajo Principal -->
-        <div class="workspace">
-            <header class="workspace-header">
-                <div class="workspace-title">
-                    <h2 style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="ph ph-chart-bar"></i> BUSINESS INTELLIGENCE
-                    </h2>
-                    <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">
-                        Control de Costes (OF) e Inversión Formativa
-                    </div>
-                </div>
-            </header>
-
-            <main class="analytics-container">
-                <!-- PANEL IZQUIERDO: Coste por OF -->
-                <div class="analytics-panel of-panel">
-                    <div class="panel-header">
-                        <h3><i class="ph ph-factory"></i> Coste Real por Proyecto (OF)</h3>
-                        <p>Total de horas invertidas en la Orden de Fabricación.</p>
-                    </div>
-                    
-                    <div class="of-search-box">
-                        <i class="ph ph-magnifying-glass"></i>
-                        <input type="text" id="of-search-input" placeholder="Introduce el número de OF (Ej: M2401)" autocomplete="off">
-                        <button id="btn-search-of" class="btn-primary">Buscar Costes</button>
-                    </div>
-
-                    <div id="of-results-container" style="display: none; margin-top: 2rem;">
-                        <div class="kpi-dashboard" style="margin-bottom: 2rem;">
-                            <div class="kpi-card" style="border-top-color: var(--stulz-red);">
-                                <div class="kpi-content">
-                                    <span class="kpi-label">OF ENCONTRADA</span>
-                                    <h3 class="kpi-value" id="res-of-name" style="color: var(--stulz-red);">--</h3>
-                                </div>
-                            </div>
-                            <div class="kpi-card" style="border-top-color: #f59e0b;">
-                                <div class="kpi-content">
-                                    <span class="kpi-label">TOTAL HORAS IMPUTADAS</span>
-                                    <h3 class="kpi-value" id="res-of-hours">0.0h</h3>
-                                </div>
-                            </div>
-                        </div>
-
-                        <h4 style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Desglose por Área:</h4>
-                        <div style="height: 300px; width: 100%;">
-                            <canvas id="ofBarChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div id="of-empty-state" style="text-align: center; padding: 4rem 2rem; color: #94a3b8;">
-                        <i class="ph ph-files" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                        <p>Busca una Orden de Fabricación para ver sus costes asociados.</p>
-                    </div>
-                </div>
-
-                <!-- PANEL DERECHO: Formación Global -->
-                <div class="analytics-panel training-panel">
-                    <div class="panel-header">
-                        <h3><i class="ph ph-graduation-cap"></i> Inversión Formativa Global</h3>
-                        <p>Distribución total de horas dedicadas a formación por operación.</p>
-                    </div>
-                    
-                    <div class="kpi-card" style="border-top-color: #3b82f6; margin-bottom: 2rem;">
-                        <div class="kpi-content">
-                            <span class="kpi-label">TOTAL HORAS FORMACIÓN (PLANTA)</span>
-                            <h3 class="kpi-value" id="res-global-hours" style="color: #3b82f6;">0.0h</h3>
-                        </div>
-                    </div>
-
-                    <div style="height: 350px; width: 100%; display: flex; justify-content: center;">
-                        <canvas id="trainingPieChart"></canvas>
-                    </div>
-                </div>
-            </main>
+    <div id="sidebar-container"></div>
+    
+    <div class="main-content dashboard-theme">
+        <div class="dashboard-header">
+            <div>
+                <h1>Command Center</h1>
+                <p>Análisis Financiero de Costes de Formación (Muda)</p>
+            </div>
+            <div class="dashboard-controls">
+                <select id="filter-linea" class="dashboard-input">
+                    <option value="">Todas las Líneas</option>
+                    <option value="L1">Línea 1</option>
+                    <option value="L2">Línea 2</option>
+                    <option value="L3">Línea 3</option>
+                    <option value="L4">Línea 4</option>
+                </select>
+                <input type="month" id="filter-month" class="dashboard-input" title="Mes de Análisis">
+                <button class="btn-dashboard" id="btn-calculate"><i class="ph ph-arrows-clockwise"></i> Calcular</button>
+            </div>
         </div>
+
+        <!-- KPIs Principales -->
+        <div class="kpi-grid">
+            <div class="kpi-card danger">
+                <div class="kpi-icon"><i class="ph ph-currency-eur"></i></div>
+                <div class="kpi-data">
+                    <h3>Coste Total (Formación)</h3>
+                    <h2 id="kpi-coste-total">0.00 €</h2>
+                    <span class="kpi-trend">Horas invertidas en personal no autónomo (Nivel 1-2)</span>
+                </div>
+            </div>
+            <div class="kpi-card info">
+                <div class="kpi-icon"><i class="ph ph-clock-countdown"></i></div>
+                <div class="kpi-data">
+                    <h3>Horas Formativas</h3>
+                    <h2 id="kpi-horas-total">0 h</h2>
+                    <span class="kpi-trend">Total de horas Muda</span>
+                </div>
+            </div>
+            <div class="kpi-card success">
+                <div class="kpi-icon"><i class="ph ph-chart-polar"></i></div>
+                <div class="kpi-data">
+                    <h3>% Autonomía Planta</h3>
+                    <h2 id="kpi-autonomia">0%</h2>
+                    <span class="kpi-trend">Operarios Nivel ≥ 3 (ILUO)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Gráfico: Top 5 OFs más caras en Formación -->
+            <div class="chart-card">
+                <h3>Top 5 Órdenes de Fabricación (Coste Formativo)</h3>
+                <div class="chart-container">
+                    <canvas id="chart-top-ofs"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico: Distribución de Niveles ILUO -->
+            <div class="chart-card">
+                <h3>Distribución de Competencias (Productivos vs Aprendices)</h3>
+                <div class="chart-container">
+                    <canvas id="chart-iluo-dist"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabla de Detalle -->
+        <div class="chart-card mt-2">
+            <h3>Desglose de Costes por Operario</h3>
+            <div class="table-container-dash">
+                <table class="dash-table">
+                    <thead>
+                        <tr>
+                            <th>Operario</th>
+                            <th>OF</th>
+                            <th>Sección</th>
+                            <th>Nivel Medio ILUO</th>
+                            <th>Horas Muda</th>
+                            <th>Coste Estimado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-details-body">
+                        <!-- Relleno por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Firebase SDK -->
+    <!-- Firebase y Lógica -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    
     <script src="../components/sidebar.js"></script>
     <script src="../shared.js"></script>
-    <!-- Lógica de Analytics -->
     <script src="js/app.js"></script>
 </body>
 </html>

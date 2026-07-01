@@ -100,29 +100,41 @@ async function initApp() {
     setupWorkerModal();
     
     // Configurar modal de festivos
-    setupHolidayModal();
+    // setupHolidayModal(); // Eliminado temporalmente por truncamiento
     
-    // Configurar modal ILUO
-    setupIluoModal();
-    
-    // Configurar Visor de Matriz ILUO
-    setupIluoViewer();
+    // Modales de ILUO movidos a configuración/polivalencia
 
     // Escuchar en tiempo real la colección de polivalencia (Matriz ILUO)
-    db.collection("polivalencia").onSnapshot((snapshot) => {
-        window.iluoData = [];
-        snapshot.forEach(doc => window.iluoData.push(doc.data()));
-        // Actualizar selectores de máquinas si ya están renderizados
-        document.querySelectorAll('.cell-input[data-field="departamento"]').forEach(select => {
+    window.skillMatrices = [];
+    window.skillScores = {};
+
+    db.collection("skill_matrices").onSnapshot(snap => {
+        window.skillMatrices = [];
+        snap.forEach(doc => window.skillMatrices.push(doc.data()));
+        document.querySelectorAll('.cell-input[data-field="departamento"], .cell-input[data-field="linea"]').forEach(select => {
             const tr = select.closest('tr');
             if (tr) {
                 const event = new Event('change');
                 select.dispatchEvent(event);
             }
         });
-    }, (error) => {
-        console.error("Error cargando matriz ILUO: ", error);
-    });
+    }, error => console.error("Error cargando skill_matrices: ", error));
+
+    db.collection("skill_scores").onSnapshot(snap => {
+        window.skillScores = {};
+        snap.forEach(doc => {
+            const data = doc.data();
+            const wId = data.idTrabajador;
+            if (!window.skillScores[wId]) window.skillScores[wId] = [];
+            window.skillScores[wId].push(data);
+        });
+        document.querySelectorAll('#table-body tr').forEach(tr => {
+            const id = tr.getAttribute('data-id');
+            const record = trainingRecords.find(r => r.id === id);
+            if (record) updateSkillIndicator(tr, record);
+        });
+    }, error => console.error("Error cargando skill_scores: ", error));
+
 
     // Escuchar en tiempo real la lista de operarios oficiales
     db.collection("operarios").orderBy("nombre").onSnapshot((snapshot) => {
@@ -455,10 +467,42 @@ function validateCell(input) {
     }
 }
 
+// Función pura para obtener máquinas disponibles según la matriz
+function getAvailableMachines(linea, departamento) {
+    if (!departamento || !window.skillMatrices) return [];
+    
+    // Normalizar para evitar problemas de mayúsculas o acentos
+    const normalize = (str) => String(str).trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    const recDepto = normalize(departamento);
+    
+    if (linea) {
+        const recLinea = normalize(linea);
+        const matchMatrix = window.skillMatrices.find(m => 
+            normalize(m.linea) === recLinea && 
+            normalize(m.seccion) === recDepto
+        );
+        if (matchMatrix && matchMatrix.tareas && matchMatrix.tareas.length > 0) {
+            return matchMatrix.tareas;
+        }
+    }
+    
+    // Fallback: Si no ha elegido línea aún, o si la línea elegida no tiene matriz propia importada,
+    // agrupar todas las tareas de ese departamento de cualquier matriz que sí esté subida.
+    const matchingMatrices = window.skillMatrices.filter(m => normalize(m.seccion) === recDepto);
+    const allTasks = new Set();
+    matchingMatrices.forEach(m => {
+        if (m.tareas) m.tareas.forEach(t => allTasks.add(t));
+    });
+    return Array.from(allTasks).sort();
+}
+
 function appendRowToTable(record) {
     const tbody = document.getElementById('table-body');
     const tr = document.createElement('tr');
     tr.setAttribute('data-id', record.id);
+    
+    const availableTasks = getAvailableMachines(record.linea, record.departamento);
     
     tr.innerHTML = `
         <td class="td-input"><input type="text" class="cell-input" data-field="trabajador" list="workers-list" value="${record.trabajador || ''}" placeholder="ID Trabajador..."></td>
@@ -470,8 +514,9 @@ function appendRowToTable(record) {
         </td>
         <td class="td-input">
             <select class="cell-input" data-field="maquina">
-                <!-- Se rellena dinámicamente -->
-                <option value="${record.maquina || ''}">${record.maquina || 'SELECCIONE DEPTO...'}</option>
+                <option value="">SELECCIONE...</option>
+                ${availableTasks.map(t => `<option value="${t}" ${record.maquina === t ? 'selected' : ''}>${t}</option>`).join('')}
+                ${(record.maquina && !availableTasks.includes(record.maquina)) ? `<option value="${record.maquina}" selected>${record.maquina}</option>` : ''}
             </select>
         </td>
         <td class="td-input">
@@ -501,6 +546,7 @@ function updateRowInTable(record) {
     
     const inputs = tr.querySelectorAll('.cell-input');
     inputs.forEach(input => {
+        // POKA-YOKE UX: No sobrescribir el valor si el elemento tiene el foco
         if (document.activeElement !== input) {
             const field = input.getAttribute('data-field');
             if (input.value != record[field] && record[field] !== undefined) {
@@ -509,6 +555,9 @@ function updateRowInTable(record) {
             validateCell(input);
         }
     });
+    
+    // Sincronizar también el indicador visual ILUO
+    updateSkillIndicator(tr, record);
 }
 
 function removeRowFromTable(id) {
@@ -526,24 +575,29 @@ function updateSkillIndicator(tr, record) {
         const indicator = tr.querySelector('.skill-indicator');
         if (!indicator) return;
         
-        if (!record || !record.trabajador || !record.maquina || !window.iluoData) {
+        if (!record || !record.trabajador || !record.maquina || !record.linea || !record.departamento) {
             indicator.className = 'skill-indicator skill-unknown';
             indicator.textContent = '-';
-            indicator.title = 'Falta ID o Máquina';
+            indicator.title = 'Falta ID, Línea, Sección o Máquina';
             return;
         }
+
+        const workerData = window.skillScores[record.trabajador.toUpperCase()];
+        let nivel = null;
+        if (workerData) {
+            const match = workerData.find(d => 
+                d.linea === record.linea && 
+                d.seccion.toUpperCase() === record.departamento.toUpperCase()
+            );
+            if (match && match.scores && match.scores[record.maquina] !== undefined) {
+                nivel = match.scores[record.maquina];
+            }
+        }
         
-        // Buscar en caché global ILUO (usando String para prevenir crash con números)
-        const match = window.iluoData.find(d => 
-            d.trabajador != null && 
-            String(d.trabajador).trim().toUpperCase() === String(record.trabajador).trim().toUpperCase() && 
-            d.maquina === record.maquina
-        );
-        
-        if (match) {
-            indicator.className = `skill-indicator skill-lvl-${match.nivel}`;
-            indicator.textContent = match.nivel;
-            indicator.title = `Nivel ILUO: ${match.nivel}`;
+        if (nivel !== null && nivel > 0) {
+            indicator.className = `skill-indicator skill-lvl-${nivel}`;
+            indicator.textContent = nivel;
+            indicator.title = `Nivel ILUO: ${nivel}`;
         } else {
             indicator.className = 'skill-indicator skill-unknown';
             indicator.textContent = '?';
@@ -613,22 +667,19 @@ function attachEventListenersToRow(tr, id) {
             if (record) {
                 record[field] = val; // Actualizar memoria local rápido
                 
-                // Si cambia departamento, actualizar lista de máquinas
-                if (field === 'departamento') {
+                // Si cambia departamento o línea, actualizar lista de máquinas
+                if (field === 'departamento' || field === 'linea') {
                     const maquinaSelect = tr.querySelector('select[data-field="maquina"]');
-                    if (maquinaSelect && window.iluoData) {
-                        const deptoMachines = [...new Set(window.iluoData
-                            .filter(d => d.departamento === val)
-                            .map(d => d.maquina))].sort();
-                        
+                    if (maquinaSelect && window.skillMatrices) {
+                        const availableTasks = getAvailableMachines(record.linea, record.departamento);
                         const currentValue = record.maquina;
-                        maquinaSelect.innerHTML = `<option value="">SELECCIONE...</option>` + 
-                            deptoMachines.map(m => `<option value="${m}">${m}</option>`).join('');
                         
-                        if (deptoMachines.includes(currentValue)) {
+                        maquinaSelect.innerHTML = `<option value="">SELECCIONE...</option>` + 
+                            availableTasks.map(t => `<option value="${t}">${t}</option>`).join('');
+                        
+                        if (availableTasks.includes(currentValue)) {
                             maquinaSelect.value = currentValue;
                         } else {
-                            // Resetear maquina si no pertenece al nuevo departamento
                             maquinaSelect.value = '';
                             record.maquina = '';
                             updateRecordToFirebase(id, 'maquina', '');
@@ -637,7 +688,7 @@ function attachEventListenersToRow(tr, id) {
                 }
                 
                 // Si cambia operario o máquina, recalcular indicador ILUO
-                if (field === 'trabajador' || field === 'maquina' || field === 'departamento') {
+                if (field === 'trabajador' || field === 'maquina' || field === 'departamento' || field === 'linea') {
                     updateSkillIndicator(tr, record);
                 }
             }
@@ -662,339 +713,5 @@ function calculateTotal() {
         totalElement.textContent = total.toFixed(2);
     }
 
-    // Lógica de KPI Cards eliminada por redundancia en interfaz
-}
-
-// Lógica para el Modal de Festivos (Calendario Laboral)
-function setupHolidayModal() {
-    const btnManage = document.getElementById('btn-manage-holidays');
-    const modal = document.getElementById('holiday-modal');
-    const btnClose = document.getElementById('holiday-btn-close');
-    const btnSave = document.getElementById('btn-save-holiday');
-    const inputDate = document.getElementById('new-holiday-date');
-    const inputName = document.getElementById('new-holiday-name');
-    const tbody = document.getElementById('holidays-table-body');
-    let unsubscribeHolidays = null;
-
-    if (!btnManage || !modal) return;
-
-    const renderHolidays = (snapshot) => {
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        
-        const holidays = [];
-        snapshot.forEach(doc => {
-            holidays.push({ id: doc.id, ...doc.data() });
-        });
-        
-        holidays.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-        
-        if (holidays.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 1rem;">No hay festivos configurados</td></tr>`;
-            return;
-        }
-        
-        holidays.forEach(h => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="font-family: monospace;">${h.fecha}</td>
-                <td>${h.motivo}</td>
-                <td style="text-align: center;">
-                    <button class="btn-delete" onclick="deleteHoliday('${h.id}')" title="Eliminar festivo">
-                        <i class="ph ph-trash"></i>
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    };
-
-    btnManage.addEventListener('click', () => {
-        modal.classList.add('show');
-        inputDate.value = '';
-        inputName.value = '';
-        
-        if (!unsubscribeHolidays) {
-            unsubscribeHolidays = db.collection('festivos').onSnapshot(renderHolidays, error => {
-                console.error("Error cargando festivos: ", error);
-                showToast("Error al cargar festivos", "error");
-            });
-        }
-    });
-
-    btnClose.addEventListener('click', () => {
-        modal.classList.remove('show');
-        if (unsubscribeHolidays) {
-            unsubscribeHolidays();
-            unsubscribeHolidays = null;
-        }
-    });
-
-    btnSave.addEventListener('click', async () => {
-        const fecha = inputDate.value;
-        const motivo = inputName.value.trim().toUpperCase();
-        
-        if (!fecha || !motivo) {
-            showToast("Introduce una fecha y un motivo válido", "warning");
-            return;
-        }
-        
-        try {
-            btnSave.disabled = true;
-            await db.collection('festivos').add({
-                fecha: fecha,
-                motivo: motivo,
-                createdAt: Date.now()
-            });
-            inputDate.value = '';
-            inputName.value = '';
-            showToast("Día festivo añadido", "success");
-        } catch(e) {
-            console.error(e);
-            showToast("Error al guardar festivo", "error");
-        } finally {
-            btnSave.disabled = false;
-        }
-    });
-}
-
-// [FIX BUG-03] Reemplazado confirm() nativo por el modal corporativo showConfirmModal()
-window.deleteHoliday = async function(id) {
-    const confirmed = await showConfirmModal();
-    if (confirmed) {
-        try {
-            await db.collection('festivos').doc(id).delete();
-            showToast("Festivo eliminado", "info");
-        } catch(e) {
-            console.error(e);
-            showToast("Error al eliminar festivo", "error");
-        }
-    }
-}
-
-// Lógica para el Modal de Importación ILUO
-function setupIluoModal() {
-    const btnImport = document.getElementById('btn-import-matrix');
-    const modal = document.getElementById('iluo-modal');
-    const btnClose = document.getElementById('iluo-btn-close');
-    const btnConfirmImport = document.getElementById('iluo-btn-import');
-    
-    if (!btnImport || !modal) return;
-    
-    btnImport.addEventListener('click', () => {
-        modal.classList.add('show');
-    });
-    
-    btnClose.addEventListener('click', () => {
-        modal.classList.remove('show');
-        document.getElementById('iluo-csv-file').value = '';
-    });
-    
-    btnConfirmImport.addEventListener('click', async () => {
-        const fileInput = document.getElementById('iluo-csv-file');
-        const deptSelect = document.getElementById('iluo-dept-select');
-        
-        if (!fileInput.files || fileInput.files.length === 0) {
-            showToast("Selecciona un archivo Excel (.xlsx o .xls) primero", "warning");
-            return;
-        }
-        
-        const file = fileInput.files[0];
-        const departamento = deptSelect.value;
-        const reader = new FileReader();
-        
-        btnConfirmImport.disabled = true;
-        btnConfirmImport.textContent = "Procesando...";
-        
-        reader.onload = async (e) => {
-            try {
-                if (typeof XLSX === 'undefined') {
-                    throw new Error("Librería SheetJS no cargada. Puede que el cortafuegos corporativo esté bloqueando el CDN.");
-                }
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                
-                // Usar la primera hoja
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                
-                // Convertir a matriz 2D (Array de Arrays)
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-                
-                if (jsonData.length < 2) {
-                    showToast("El archivo no tiene el formato correcto o está vacío", "error");
-                    btnConfirmImport.disabled = false;
-                    btnConfirmImport.textContent = "Importar Datos";
-                    return;
-                }
-                
-                // Encontrar la fila ancla ("Habilidades")
-                let anchorRowIndex = -1;
-                for (let i = 0; i < jsonData.length; i++) {
-                    const firstCell = String(jsonData[i][0]).trim().toLowerCase();
-                    if (firstCell.includes("habilidad")) {
-                        anchorRowIndex = i;
-                        break;
-                    }
-                }
-                
-                if (anchorRowIndex === -1) {
-                    showToast("No se encontró la celda 'Habilidades' en la primera columna.", "error");
-                    btnConfirmImport.disabled = false;
-                    btnConfirmImport.textContent = "Importar Datos";
-                    return;
-                }
-                
-                // Determinar qué fila tiene los nombres de los operarios (probamos H y H+1)
-                const rowH = jsonData[anchorRowIndex].map(c => String(c).trim());
-                const rowH1 = (anchorRowIndex + 1 < jsonData.length) ? jsonData[anchorRowIndex + 1].map(c => String(c).trim()) : [];
-                
-                let operariosRow = rowH;
-                let machinesStartIndex = anchorRowIndex + 1;
-                
-                // Contar cuántas celdas no vacías hay a partir de la columna 1
-                const countNonEmpty = (row) => row.slice(1).filter(c => c !== '').length;
-                
-                if (countNonEmpty(rowH1) > countNonEmpty(rowH)) {
-                    operariosRow = rowH1;
-                    machinesStartIndex = anchorRowIndex + 2; // Las máquinas empiezan debajo de los operarios
-                }
-                
-                const operarios = operariosRow.slice(1);
-                
-                let count = 0;
-                // Procesar las filas de máquinas
-                for (let i = machinesStartIndex; i < jsonData.length; i++) {
-                    const row = jsonData[i].map(c => String(c).trim());
-                    if (row.length === 0) continue;
-                    
-                    const maquina = row[0];
-                    if (maquina === '') continue; // Ignorar filas vacías
-                    
-                    // Condición de parada (fin de la tabla ILUO)
-                    if (maquina.toLowerCase().includes("grado de formación") || maquina.toLowerCase().includes("total")) {
-                        break;
-                    }
-                    
-                    for (let j = 1; j < row.length; j++) {
-                        const operarioId = operarios[j-1];
-                        const nivelRaw = row[j];
-                        const nivel = parseInt(nivelRaw, 10);
-                        
-                        // Solo procesar si el operario no está vacío y el nivel es un número válido (1 al 4)
-                        if (operarioId && operarioId !== '' && !isNaN(nivel) && nivel >= 1 && nivel <= 4) {
-                            // Sanitizar docId para Firebase (sin barras ni espacios)
-                            const sanitize = (str) => String(str).replace(/[\\s/\\\\.]+/g, '_');
-                            const docId = `${sanitize(departamento)}_${sanitize(maquina)}_${sanitize(operarioId)}`;
-                            
-                            await db.collection('polivalencia').doc(docId).set({
-                                departamento: departamento,
-                                maquina: maquina,
-                                trabajador: operarioId,
-                                nivel: nivel,
-                                updatedAt: Date.now()
-                            });
-                            count++;
-                        }
-                    }
-                }
-                
-                showToast(`¡Matriz importada con éxito! ${count} registros guardados.`, "success");
-                modal.classList.remove('show');
-                fileInput.value = '';
-            } catch (error) {
-                console.error("Error procesando Excel: ", error);
-                showToast("Error importando: " + error.message, "error");
-            } finally {
-                btnConfirmImport.disabled = false;
-                btnConfirmImport.textContent = "Importar Datos";
-            }
-        };
-        
-        reader.onerror = () => {
-            showToast("Error al leer el archivo", "error");
-            btnConfirmImport.disabled = false;
-            btnConfirmImport.textContent = "Importar Datos";
-        };
-        
-        reader.readAsArrayBuffer(file);
-    });
-}
-
-// Lógica para el Visor Global Matriz ILUO
-function setupIluoViewer() {
-    const btnView = document.getElementById('btn-view-matrix');
-    const modal = document.getElementById('iluo-viewer-modal');
-    const btnClose = document.getElementById('iluo-viewer-btn-close');
-    const deptSelect = document.getElementById('iluo-viewer-dept');
-    const thead = document.getElementById('iluo-viewer-thead');
-    const tbody = document.getElementById('iluo-viewer-tbody');
-    
-    if (!btnView || !modal) return;
-    
-    btnView.addEventListener('click', () => {
-        modal.classList.add('show');
-        if (deptSelect.value) {
-            renderIluoTable(deptSelect.value);
-        }
-    });
-    
-    btnClose.addEventListener('click', () => {
-        modal.classList.remove('show');
-    });
-    
-    deptSelect.addEventListener('change', (e) => {
-        renderIluoTable(e.target.value);
-    });
-    
-    function renderIluoTable(departamento) {
-        thead.innerHTML = '';
-        tbody.innerHTML = '';
-        
-        if (!departamento || !window.iluoData || window.iluoData.length === 0) return;
-        
-        // Filtrar datos por departamento
-        const deptData = window.iluoData.filter(d => d.departamento === departamento);
-        if (deptData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="100%" style="text-align: center; padding: 2rem;">No hay datos para este departamento</td></tr>';
-            return;
-        }
-        
-        // Extraer operarios (columnas) y máquinas (filas) únicos
-        const operarios = [...new Set(deptData.map(d => d.trabajador))].sort();
-        const maquinas = [...new Set(deptData.map(d => d.maquina))].sort();
-        
-        // Generar Cabecera (Thead)
-        const trHead = document.createElement('tr');
-        trHead.innerHTML = `<th style="background: var(--surface-hover); color: var(--text-primary); text-align: left; min-width: 200px; position: sticky; left: 0; z-index: 2;">MÁQUINA / PUESTO</th>`;
-        operarios.forEach(op => {
-            trHead.innerHTML += `<th style="text-align: center; width: 80px;">${op}</th>`;
-        });
-        thead.appendChild(trHead);
-        
-        // Generar Cuerpo (Tbody)
-        maquinas.forEach(maquina => {
-            const tr = document.createElement('tr');
-            
-            // Columna sticky para la máquina
-            let html = `<td style="font-weight: bold; position: sticky; left: 0; background: var(--bg-primary); z-index: 1;">${maquina}</td>`;
-            
-            operarios.forEach(op => {
-                // Buscar nivel para esta intersección
-                const match = deptData.find(d => d.maquina === maquina && d.trabajador === op);
-                if (match) {
-                    html += `<td style="text-align: center;">
-                        <div class="skill-indicator skill-lvl-${match.nivel}" style="margin: 0 auto;">${match.nivel}</div>
-                    </td>`;
-                } else {
-                    html += `<td style="text-align: center;">
-                        <div class="skill-indicator skill-unknown" style="margin: 0 auto; opacity: 0.3;">-</div>
-                    </td>`;
-                }
-            });
-            
-            tr.innerHTML = html;
-            tbody.appendChild(tr);
-        });
-    }
-}
+} 
+// FIN app.js

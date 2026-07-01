@@ -122,7 +122,6 @@ async function loadFinancialData() {
 
             return {
                 ...ett,
-                nombre: ett.nombre || 'Desconocido',
                 horasFormacion: totalHorasFormacion,
                 coste: costeTotal,
                 isLearning: isLearning
@@ -198,7 +197,7 @@ function renderTable(searchTerm = '') {
     searchTerm = searchTerm.toUpperCase().trim();
 
     const filtered = operariosETT.filter(e => {
-        return e.nombre.toUpperCase().includes(searchTerm) || e.idTrabajador.toUpperCase().includes(searchTerm);
+        return e.idTrabajador.toUpperCase().includes(searchTerm);
     });
 
     if (filtered.length === 0) {
@@ -219,8 +218,7 @@ function renderTable(searchTerm = '') {
         
         tr.innerHTML = `
             <td>
-                <div style="font-weight: 600; color: var(--text-primary);">${ett.nombre}</div>
-                <div style="font-size: 0.75rem; color: #64748b;">ID: ${ett.idTrabajador}</div>
+                <div style="font-weight: 600; color: var(--text-primary);">${ett.idTrabajador}</div>
             </td>
             <td><span class="badge-agency ${badgeClass}">${agenciaLabel}</span></td>
             <td style="text-align: center; font-weight: 600;">${ett.horasFormacion.toFixed(1)}h</td>

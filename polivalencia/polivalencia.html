@@ -13,6 +13,9 @@
     
     <link rel="stylesheet" href="../style.css">
     <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Chart.js para el radar de la Carta FIFA -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -30,12 +33,14 @@
                     <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">Mapa de Competencias Operativas</div>
                 </div>
                 
-                <!-- Leyenda de colores -->
+                <!-- Leyenda ILUO -->
                 <div class="matrix-legend">
-                    <div class="legend-item"><span class="legend-color legend-red"></span> No Formado (0h)</div>
-                    <div class="legend-item"><span class="legend-color legend-yellow"></span> En Formación (< 10h)</div>
-                    <div class="legend-item"><span class="legend-color legend-green"></span> Autónomo (>= 10h)</div>
-                    <div class="legend-item"><span class="legend-color legend-blue"></span> Experto/Formador (>= 40h)</div>
+                    <div class="legend-item"><span class="legend-color" style="background:#475569;"></span> Sin evaluación</div>
+                    <div class="legend-item"><span class="legend-color legend-red"></span> I — Instruido</div>
+                    <div class="legend-item"><span class="legend-color legend-yellow"></span> L — Con ayuda</div>
+                    <div class="legend-item"><span class="legend-color legend-green"></span> U — Autónomo</div>
+                    <div class="legend-item"><span class="legend-color legend-blue"></span> O — Formador</div>
+                    <div class="legend-item" style="color:#94a3b8;font-style:italic;font-size:0.75rem;"><i class="ph ph-cursor-click"></i> Click en celda para editar</div>
                 </div>
             </header>
 
@@ -48,16 +53,25 @@
                     </div>
                     
                     <div class="filter-group" style="display: flex; gap: 0.5rem;">
+                        <select id="filter-linea" class="form-select" style="height: 48px; min-width: 150px; padding: 0 1rem; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-family: 'Inter', sans-serif; font-size: 1rem;">
+                            <option value="">Selecciona Línea...</option>
+                            <option value="L1">Línea 1</option>
+                            <option value="L2" selected>Línea 2</option>
+                            <option value="L3">Línea 3</option>
+                            <option value="L4">Línea 4</option>
+                            <option value="SAT">SAT</option>
+                        </select>
                         <select id="filter-seccion" class="form-select" style="height: 48px; min-width: 150px; padding: 0 1rem; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-family: 'Inter', sans-serif; font-size: 1rem;">
-                            <option value="">Todas las Secciones</option>
-                            <option value="MONTAJE">Montaje</option>
+                            <option value="">Selecciona Sección...</option>
+                            <option value="MONTAJE MECÁNICO">Montaje Mecánico</option>
+                            <option value="MONTAJE ELÉCTRICO" selected>Montaje Eléctrico</option>
                             <option value="BATERÍAS">Baterías</option>
-                            <option value="CHAPA">Chapa</option>
-                            <option value="ALMACÉN">Almacén</option>
+                            <option value="TRANSFORMACIÓN METÁLICA">Transformación Metálica</option>
+                            <option value="PERFILERÍA Y SOLDADURA">Perfilería y Soldadura</option>
+                            <option value="LOGÍSTICA">Logística</option>
                         </select>
                         <select id="filter-turno" class="form-select" style="height: 48px; min-width: 150px; padding: 0 1rem; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; font-family: 'Inter', sans-serif; font-size: 1rem;">
                             <option value="">Todos los Turnos</option>
-                            <!-- [FIX BUG-02] Valores corregidos: deben coincidir con turnoBase guardado en Firestore ('Mañana'/'Tarde') -->
                             <option value="Mañana">Turno Mañana</option>
                             <option value="Tarde">Turno Tarde</option>
                         </select>
@@ -67,15 +81,9 @@
                 <div class="matrix-table-wrapper">
                     <table class="matrix-table" id="skills-matrix">
                         <thead>
-                            <tr>
+                            <tr id="matrix-head">
                                 <th class="sticky-col">OPERARIO</th>
-                                <!-- [FIX BUG-01] Cabeceras alineadas con campo 'departamento' del registro -->
-                                <th>MONTAJE MECÁNICO</th>
-                                <th>MONTAJE ELÉCTRICO</th>
-                                <th>BATERÍAS</th>
-                                <th>TRANSFORM. METÁLICA</th>
-                                <th>PERFILERÍA Y SOLDADURA</th>
-                                <th>LOGÍSTICA</th>
+                                <!-- Columnas dinámicas generadas en JS -->
                             </tr>
                         </thead>
                         <tbody id="matrix-body">
@@ -84,6 +92,61 @@
                     </table>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- Modal Ficha de Operario (Estilo FIFA) -->
+    <div id="fifa-modal" class="modal-backdrop">
+        <div class="modal-content fifa-modal-content">
+            <button class="btn-close-modal" onclick="closeFifaModal()"><i class="ph ph-x"></i></button>
+            <div class="fifa-layout">
+                <!-- Izquierda: La Carta FUT -->
+                <div class="fifa-card-container">
+                    <div class="fifa-card gold-card">
+                        <div class="card-header">
+                            <div class="ovr-container">
+                                <span id="fifa-ovr" class="card-ovr">87</span>
+                                <span class="card-pos">OVR</span>
+                            </div>
+                            <div class="card-club">
+                                <i class="ph-fill ph-factory"></i>
+                            </div>
+                        </div>
+                        <div class="card-image">
+                            <!-- Silueta de jugador -->
+                            <i class="ph-fill ph-user"></i>
+                        </div>
+                        <div class="card-name" id="fifa-name">R. ALONSO</div>
+                        <div class="card-divider"></div>
+                        <div class="card-stats">
+                            <div class="stat-col">
+                                <div><span class="stat-val" id="stat-mel">85</span><span class="stat-lbl">M.EL</span></div>
+                                <div><span class="stat-val" id="stat-mmc">92</span><span class="stat-lbl">M.MC</span></div>
+                                <div><span class="stat-val" id="stat-bat">78</span><span class="stat-lbl">BAT</span></div>
+                            </div>
+                            <div class="stat-col">
+                                <div><span class="stat-val" id="stat-log">60</span><span class="stat-lbl">LOG</span></div>
+                                <div><span class="stat-val" id="stat-met">88</span><span class="stat-lbl">MET</span></div>
+                                <div><span class="stat-val" id="stat-pys">95</span><span class="stat-lbl">PYS</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Derecha: El Gráfico de Radar -->
+                <div class="fifa-radar-container">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
+                        <h3 style="color:var(--stulz-red); margin-top:0; margin-bottom:0;"><i class="ph ph-target"></i> SKILLS</h3>
+                        <div id="fifa-radar-tabs" style="display:flex; gap:0.25rem;">
+                            <!-- Inyectadas con JS -->
+                        </div>
+                    </div>
+                    <!-- Le damos más altura al radar ya que hemos quitado los playstyles -->
+                    <div style="position: relative; width: 100%; height: 400px;">
+                        <canvas id="fifaRadarChart"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

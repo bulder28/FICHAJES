@@ -5,7 +5,21 @@
 
 ---
 
-## 🏗️ Arquitectura del Sistema (SPA)
+## � Objetivo de Negocio
+
+Esta aplicación tiene un propósito operativo claro: ofrecer a los trabajadores de la empresa y a los operarios ETT una herramienta sencilla, rápida y accesible en planta para registrar el tiempo que invierten en formación, aprendizaje y puesta a punto de tareas.
+
+Ese registro no es solo un dato de control: sirve para construir el sistema ILUO y completar la matriz de polivalencia. Cada departamento, fase o estación de trabajo tiene tareas y competencias que deben dominarse, y el tiempo registrado permite identificar qué personas están adquiriendo esas competencias, en qué nivel y con qué frecuencia.
+
+En resumen, la app pretende:
+- facilitar el registro del tiempo de formación en planta
+- homogeneizar la recogida de información entre plantilla y ETT
+- generar evidencia objetiva de aprendizaje y capacitación
+- alimentar la matriz de polivalencia para que jefes de línea y responsables puedan validar competencias por operario, área y fase
+
+---
+
+## �🏗️ Arquitectura del Sistema (SPA)
 
 La aplicación es una **Single Page Application (SPA)** que se carga desde un único archivo `index.html`. Esto garantiza el funcionamiento correcto en entornos de planta sin servidor local (protocolo `file://`).
 
@@ -94,5 +108,6 @@ FICHAJES/
 ## 🔮 Próximos Módulos Planificados
 
 1. **Planificador de Ausencias** — control de absentismo con integración con `festivos`
-2. **Matriz de Polivalencia** — skills por operario y sección
-3. **Dashboard de KPIs** — OEE y formación por línea y turno
+2. **Matriz de Polivalencia ILUO** — competencias por operario, sección, fase y línea
+3. **Validación de Jefes de Línea** — flujo para que los responsables aprueben o ratifiquen competencias
+4. **Dashboard de KPIs** — formación, cobertura de competencias y evolución por turno y departamento

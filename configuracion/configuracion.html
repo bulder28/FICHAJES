@@ -74,26 +74,100 @@
 
                 </div>
 
+                <!-- Columna Centro/Izquierda: Importador Excel -->
+                <div class="config-column">
+                    <div class="config-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="ph ph-file-xls panel-icon"></i>
+                            <h3>Importar Matriz ILUO</h3>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label for="iluo-linea">Línea de Destino</label>
+                                <select id="iluo-linea" class="form-input">
+                                    <option value="L1">Línea 1</option>
+                                    <option value="L2">Línea 2</option>
+                                    <option value="L3">Línea 3</option>
+                                    <option value="L4">Línea 4</option>
+                                    <option value="SAT">SAT</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="iluo-seccion">Sección</label>
+                                <select id="iluo-seccion" class="form-input">
+                                    <option value="MONTAJE MECÁNICO">Montaje Mecánico</option>
+                                    <option value="MONTAJE ELÉCTRICO">Montaje Eléctrico</option>
+                                    <option value="BATERÍAS">Baterías</option>
+                                    <option value="TRANSFORMACIÓN METÁLICA">Transformación Metálica</option>
+                                    <option value="PERFILERÍA Y SOLDADURA">Perfilería y Soldadura</option>
+                                    <option value="LOGÍSTICA">Logística</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="iluo-file">Archivos Excel (.xlsx) — puedes seleccionar varios</label>
+                                <input type="file" id="iluo-file" accept=".xlsx,.xls" multiple class="form-input" style="padding: 0.5rem;">
+                            </div>
+                            <div id="iluo-preview" style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;"></div>
+                            <button class="btn-primary" id="btn-import-iluo" style="width: 100%;"><i class="ph ph-upload"></i> Importar Matriz</button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Subida de Fotos -->
+                    <div class="config-panel glass-panel" style="margin-top: 1.5rem;">
+                        <div class="panel-header">
+                            <i class="ph ph-camera panel-icon"></i>
+                            <h3>Foto Carta FIFA (RRHH)</h3>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label for="photo-worker-id">ID Operario</label>
+                                <input type="text" id="photo-worker-id" class="form-input" placeholder="Ej: 042 o JSM" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="photo-file">Foto Carnet (.jpg, .png)</label>
+                                <input type="file" id="photo-file" accept="image/png, image/jpeg" class="form-input" style="padding: 0.5rem;" required>
+                            </div>
+                            <!-- Canvas oculto para compresin -->
+                            <canvas id="photo-canvas" style="display:none;"></canvas>
+                            <div id="photo-preview" style="text-align:center; margin-bottom: 1rem; display:none;">
+                                <img id="photo-img-preview" src="" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 2px solid var(--stulz-red);">
+                            </div>
+                            <button class="btn-primary" id="btn-upload-photo" style="width: 100%;"><i class="ph ph-cloud-arrow-up"></i> Guardar Foto</button>
+                        </div>
+                    </div>
+
+                </div>
+
                 <!-- Columna Derecha: Gestión de Operarios -->
                 <div class="config-column wide-column">
                     <div class="config-panel glass-panel">
                         <div class="panel-header">
                             <i class="ph ph-users-three panel-icon"></i>
                             <h3>Gestión de Plantilla Maestra</h3>
-                            <button class="btn-secondary btn-small" onclick="openWorkerModal()">+ Nuevo Operario</button>
+                            <div style="display:flex; gap:0.5rem;">
+                                <input type="file" id="import-operarios-file" accept=".xlsx, .xls" style="display:none">
+                                <button class="btn-secondary btn-small" onclick="document.getElementById('import-operarios-file').click()">
+                                    <i class="ph ph-upload-simple"></i> Importar Excel
+                                </button>
+                                <button class="btn-secondary btn-small" onclick="openWorkerModal()">+ Nuevo Operario</button>
+                            </div>
                         </div>
                         <div class="panel-body">
-                            <div class="table-controls">
-                                <input type="text" id="search-worker" class="form-input search-input" placeholder="Buscar por ID o Nombre...">
+                            <div class="table-controls" style="display: flex; gap: 1rem; align-items: center; justify-content: space-between;">
+                                <input type="text" id="search-worker" class="form-input search-input" placeholder="Buscar por ID..." style="flex: 1;">
+                                <label class="btn-secondary btn-small" style="cursor: pointer; margin: 0;" title="Sube el archivo Excel de Líneas (Operarios_Lineas)">
+                                    <i class="ph ph-arrows-clockwise"></i> Sincronizar Líneas
+                                    <input type="file" id="sync-lineas-file" accept=".xlsx,.xls" style="display: none;">
+                                </label>
                             </div>
                             <div class="table-container">
                                 <table class="data-table" id="workers-table">
                                     <thead>
                                         <tr>
                                             <th>ID Operario</th>
-                                            <th>Nombre Completo</th>
+                                            <th>Nombre</th>
                                             <th>Tipo</th>
-                                            <th>Agencia</th>
+                                            <th>Agencia / Sección</th>
                                             <th>Acciones</th>
                                         </tr>
                                     </thead>
@@ -116,7 +190,7 @@
             <form id="worker-form">
                 <input type="hidden" id="worker-doc-id">
                 <div class="form-group">
-                    <label>ID Trabajador (Gala)</label>
+                    <label>ID Trabajador (3 Dígitos)</label>
                     <input type="text" id="worker-id" class="form-input" required>
                 </div>
                 <div class="form-group">
@@ -154,6 +228,10 @@
     <script src="../components/sidebar.js"></script>
     <script src="../shared.js"></script>
     <!-- Lógica de la Aplicación -->
+    <!-- SheetJS (Excel Parser) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="js/excel.js"></script>
+    <script src="js/photos.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

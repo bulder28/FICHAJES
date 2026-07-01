@@ -11,7 +11,6 @@
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -58,21 +57,13 @@
                 <button id="btn-add-worker" class="btn-action btn-secondary admin-only" style="display: none;">
                     Alta Operario
                 </button>
-                <button id="btn-manage-holidays" class="btn-action btn-secondary admin-only" style="display: none; background: #475569; color: white;">
-                    <i class="ph ph-calendar-star"></i> Festivos
-                </button>
-                <button id="btn-import-matrix" class="btn-action btn-secondary admin-only" style="display: none; background: #10b981; color: white;">
-                    <i class="ph ph-microsoft-excel-logo"></i> Importar ILUO
-                </button>
-                <button id="btn-view-matrix" class="btn-action btn-secondary admin-only" style="display: none; background: #8b5cf6; color: white;">
-                    <i class="ph ph-grid-four"></i> Ver Matriz Global
-                </button>
+                <!-- Los botones de Importar ILUO y Ver Matriz Global han sido eliminados por obsolescencia -->
             </div>
             <table class="data-table" id="training-table">
                 <thead>
                     <tr>
                         <th style="width: 12%">ID TRABAJADOR</th>
-                        <th style="width: 8%">OF</th>
+                        <th style="width: 8%">OF EN CURSO</th>
                         <th style="width: 18%">DEPARTAMENTO</th>
                         <th style="width: 18%">MÁQUINA/PUESTO</th>
                         <th style="width: 8%">LÍNEA</th>
@@ -115,108 +106,6 @@
         </div>
     </div>
 
-    <!-- Modal de Festivos (Calendario Laboral) -->
-    <div id="holiday-modal" class="modal-backdrop">
-        <div class="modal-content" style="max-width: 480px;">
-            <div class="modal-header" style="color: var(--stulz-red);">
-                <h2 style="display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-calendar-star"></i> Calendario de Festivos</h2>
-            </div>
-            <div class="modal-body">
-                <p>Añade los días festivos nacionales, locales o días de cierre de fábrica. El sistema de absentismo no penalizará a los operarios en estos días.</p>
-                
-                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                    <input type="date" id="new-holiday-date" class="modal-input" style="margin-top: 0; flex: 1;">
-                    <input type="text" id="new-holiday-name" placeholder="Ej: Navidad..." class="modal-input" style="margin-top: 0; flex: 2;">
-                    <button id="btn-save-holiday" class="btn-action btn-primary" style="height: 42px;"><i class="ph ph-plus"></i></button>
-                </div>
-                
-                <div style="margin-top: 1.5rem; border: 1px solid var(--border-color); max-height: 200px; overflow-y: auto;">
-                    <table class="data-table" style="width: 100%;">
-                        <thead style="position: sticky; top: 0; background: var(--table-header-bg);">
-                            <tr>
-                                <th style="padding: 0.5rem; font-size: 0.7rem;">FECHA</th>
-                                <th style="padding: 0.5rem; font-size: 0.7rem;">MOTIVO</th>
-                                <th style="padding: 0.5rem; font-size: 0.7rem; text-align: center;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="holidays-table-body">
-                            <!-- Filas dinámicas -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="holiday-btn-close" class="btn-modal btn-modal-cancel">Cerrar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Importación de Matriz ILUO -->
-    <div id="iluo-modal" class="modal-backdrop">
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header" style="color: #10b981;">
-                <h2 style="display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-microsoft-excel-logo"></i> Importar Matriz ILUO</h2>
-            </div>
-            <div class="modal-body">
-                <p>Importa tu Excel nativo de Polivalencia (.xlsx o .xls). El sistema leerá las máquinas (filas) y los niveles de los operarios (columnas).</p>
-                <div style="margin-top: 1rem;">
-                    <label style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.5rem; display: block;">Departamento:</label>
-                    <select id="iluo-dept-select" class="modal-input">
-                        <option value="Montaje Mecánico">Montaje Mecánico</option>
-                        <option value="Montaje Eléctrico">Montaje Eléctrico</option>
-                        <option value="Baterías">Baterías</option>
-                        <option value="Transformación Metálica">Transformación Metálica</option>
-                        <option value="Perfilería y Soldadura">Perfilería y Soldadura</option>
-                        <option value="Logística">Logística</option>
-                    </select>
-                </div>
-                <div style="margin-top: 1rem;">
-                    <label style="font-size: 0.85rem; font-weight: bold; margin-bottom: 0.5rem; display: block;">Archivo Excel:</label>
-                    <input type="file" id="iluo-csv-file" class="modal-input" accept=".xlsx,.xls" style="padding: 0.5rem;">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="iluo-btn-close" class="btn-modal btn-modal-cancel">Cancelar</button>
-                <button id="iluo-btn-import" class="btn-modal btn-modal-confirm" style="background: #10b981; border-color: #10b981;">Importar Datos</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Visor Matriz ILUO -->
-    <div id="iluo-viewer-modal" class="modal-backdrop">
-        <div class="modal-content" style="max-width: 95%; max-height: 95vh; overflow-y: auto;">
-            <div class="modal-header" style="color: #8b5cf6; display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-grid-four"></i> Visor de Matriz de Polivalencia</h2>
-                <button id="iluo-viewer-btn-close" class="btn-modal btn-modal-cancel" style="margin: 0; padding: 0.25rem 0.5rem;">Cerrar</button>
-            </div>
-            <div class="modal-body">
-                <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem;">
-                    <label style="font-weight: bold;">Filtrar por Departamento:</label>
-                    <select id="iluo-viewer-dept" class="modal-input" style="max-width: 300px;">
-                        <option value="">-- Selecciona Departamento --</option>
-                        <option value="Montaje Mecánico">Montaje Mecánico</option>
-                        <option value="Montaje Eléctrico">Montaje Eléctrico</option>
-                        <option value="Baterías">Baterías</option>
-                        <option value="Transformación Metálica">Transformación Metálica</option>
-                        <option value="Perfilería y Soldadura">Perfilería y Soldadura</option>
-                        <option value="Logística">Logística</option>
-                    </select>
-                </div>
-                
-                <div style="overflow-x: auto;">
-                    <table class="data-table" id="iluo-viewer-table" style="min-width: 100%;">
-                        <thead id="iluo-viewer-thead">
-                            <!-- Inyectado por JS -->
-                        </thead>
-                        <tbody id="iluo-viewer-tbody">
-                            <!-- Inyectado por JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Modal de Confirmación Corporativo -->
     <div id="confirm-modal" class="modal-backdrop">
         <div class="modal-content">
@@ -245,7 +134,7 @@
                 <p>Introduce los datos base del operario para darlo de alta en la base de datos de la planta:</p>
                 
                 <input type="text" id="new-worker-name" placeholder="Nombre y Apellidos..." class="modal-input">
-                <input type="text" id="new-worker-id" placeholder="ID Trabajador..." class="modal-input">
+                <input type="text" id="new-worker-id" placeholder="ID (Ej: 3 Iniciales JRC)..." class="modal-input">
                 
                 <select id="new-worker-turno" class="modal-input">
                     <option value="">Selecciona Turno Base...</option>
@@ -357,8 +246,8 @@
             setTimeout(() => {
                 viewLauncher.style.display = 'none';
                 viewApp.style.display = 'flex';
-                document.body.classList.add('no-sidebar');
-                // Mostrar badge de turno en modo kiosko
+                // Modo quiosco desactivado: el menú lateral ahora siempre será visible
+                // Mostrar badge de turno
                 const badge = document.getElementById('shift-badge');
                 if (badge) {
                     const hour = new Date().getHours();
