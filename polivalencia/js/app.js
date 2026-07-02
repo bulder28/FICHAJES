@@ -37,7 +37,7 @@ async function loadWorkers() {
                 id: d.idTrabajador || doc.id,
                 seccionBase: (d.seccionBase || '').toUpperCase(),
                 lineaBase: (d.lineaBase || '').toUpperCase(),
-                turnoBase: d.turnoBase || '',
+                turnoBase: d.turnoBase || 'SIN TURNO',
                 isETT: d.isETT || false
             });
         });
@@ -174,8 +174,9 @@ function renderMatrix() {
     if (search) filtered = filtered.filter(w => w.id.includes(search));
 
     if (filtered.length === 0) {
+        const razon = turno ? `no hay operarios del turno <strong>${turno}</strong>` : 'no hay operarios para estos filtros';
         tbody.innerHTML = `<tr><td colspan="${matrixSchema.tareas.length + 1}" style="text-align:center;padding:2rem;color:#64748b;">
-            No hay operarios para estos filtros</td></tr>`;
+            ℹ️ ${razon}</td></tr>`;
         return;
     }
 
