@@ -8,7 +8,7 @@
             "type": "msedge",
             "request": "launch",
             "name": "Open index.html",
-            "file": "c:\\Users\\idivar\\OneDrive - Grupo Stulz - España\\Escritorio\\FICHAJES\\analytics\\index.html"
+            "file": "${workspaceFolder}/index.html"
         }
     ]
 }

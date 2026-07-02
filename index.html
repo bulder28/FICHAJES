@@ -18,14 +18,14 @@
     <!-- SPA LAUNCHER VIEW -->
     <div id="view-launcher">
         <div class="launcher-container">
-            <div class="launcher-logo">STULZ</div>
+            <div class="launcher-logo" onclick="handleLogoClick()" style="cursor: pointer; user-select: none;">STULZ</div>
             <div class="launcher-subtitle">Portal de Gestión de Personal</div>
 
             <button onclick="enterProductionMode()" class="btn-launcher btn-production">
                 <i class="ph ph-factory"></i> Acceso a Producción (Planta)
             </button>
 
-            <button onclick="openPinModal()" class="btn-launcher btn-hr">
+            <button onclick="openPinModal()" class="btn-launcher btn-hr" id="btn-admin-login">
                 <i class="ph ph-shield-lock"></i> Administración (RRHH)
             </button>
         </div>
@@ -40,9 +40,12 @@
         <!-- Área Principal de Trabajo -->
         <div class="workspace">
             <header class="workspace-header">
-                <div class="workspace-title">
-                    <h2 style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-terminal-window"></i> REGISTRO DE FORMACIÓN</h2>
-                    <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">Operación y Control de Planta</div>
+                <div class="workspace-title" style="display: flex; align-items: center; gap: 1.5rem;">
+                    <h1 class="logo" onclick="handleLogoClick()" style="cursor: pointer; user-select: none; font-size: 1.8rem; margin: 0; padding-right: 1.5rem; border-right: 2px solid var(--border-color);">STULZ</h1>
+                    <div>
+                        <h2 style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;"><i class="ph ph-terminal-window"></i> REGISTRO DE FORMACIÓN</h2>
+                        <div class="subtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">Operación y Control de Planta</div>
+                    </div>
                 </div>
                 <!-- Badge de turno activo (visible en modo Kiosko) -->
                 <div id="shift-badge" class="shift-badge" style="display:none;"></div>
@@ -222,6 +225,21 @@
         const viewLauncher = document.getElementById('view-launcher');
         const viewApp = document.getElementById('view-app');
 
+        // [MODO KIOSKO SECRETO] Clicar 5 veces en el logo para mostrar el PIN de Admin
+        let logoClicks = 0;
+        let logoClickTimer = null;
+        function handleLogoClick() {
+            logoClicks++;
+            clearTimeout(logoClickTimer);
+            // Si pasan 3 segundos sin clicar, se reinicia el contador
+            logoClickTimer = setTimeout(() => { logoClicks = 0; }, 3000);
+            
+            if (logoClicks >= 5) {
+                openPinModal();
+                logoClicks = 0; // Resetear después de abrir
+            }
+        }
+
         // [FIX BUG-10] updateLauncherInfo() eliminada: los IDs 'launcher-shift-label' y 'launcher-date'
         // no existen en el HTML. La función era código muerto que se ejecutaba cada minuto sin efecto.
 
@@ -246,7 +264,8 @@
             setTimeout(() => {
                 viewLauncher.style.display = 'none';
                 viewApp.style.display = 'flex';
-                // Modo quiosco desactivado: el menú lateral ahora siempre será visible
+                // Activar Modo Kiosko: Ocultar el menú lateral en la vista de producción
+                document.body.classList.add('no-sidebar');
                 // Mostrar badge de turno
                 const badge = document.getElementById('shift-badge');
                 if (badge) {

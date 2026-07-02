@@ -15,7 +15,7 @@ function renderSidebar() {
 
     const sidebarHTML = `
         <div class="sidebar-brand">
-            <h1 class="logo">STULZ</h1>
+            <h1 class="logo" onclick="handleLogoClick()" style="cursor: pointer; user-select: none;">STULZ</h1>
             <span>Gestión de Personal</span>
         </div>
         

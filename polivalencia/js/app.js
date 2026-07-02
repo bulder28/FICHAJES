@@ -19,8 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('filter-linea')?.addEventListener('change', onFilterChange);
     document.getElementById('filter-seccion')?.addEventListener('change', onFilterChange);
-    document.getElementById('filter-turno')?.addEventListener('change', () => renderMatrix());
-    document.getElementById('search-matrix')?.addEventListener('input', () => renderMatrix());
+    document.getElementById('filter-turno')?.addEventListener('change', () => { if(matrixSchema) renderMatrix(); else onFilterChange(); });
+    document.getElementById('search-matrix')?.addEventListener('input', () => { if(matrixSchema) renderMatrix(); else onFilterChange(); });
 
     await loadWorkers();
     onFilterChange();
