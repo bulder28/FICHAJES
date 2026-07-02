@@ -112,12 +112,18 @@ async function loadMatrixData(linea, seccion) {
             .get();
 
         currentScores = {};
+        const preferPrefix = `${matrixSchema.linea}_`;
         scoresSnap.forEach(doc => {
             const d = doc.data();
-            currentScores[d.idTrabajador] = {
-                docId: doc.id,
-                scores: d.scores || {}
-            };
+            const prev = currentScores[d.idTrabajador];
+            if (!prev) {
+                currentScores[d.idTrabajador] = { docId: doc.id, scores: { ...(d.scores || {}) } };
+            } else {
+                // Duplicado (mismo operario, misma sección, distinta línea): fusionar niveles
+                // y quedarse con el docId que corresponde a la línea de la matriz cargada.
+                Object.assign(prev.scores, d.scores || {});
+                if (doc.id.includes(preferPrefix)) prev.docId = doc.id;
+            }
         });
 
         // Construir cabecera dinámica
@@ -243,8 +249,10 @@ function openIluoEditor(worker, tarea, nivelActual, scoreDocId) {
     // Eliminar editor anterior si existe
     document.getElementById('iluo-inline-editor')?.remove();
 
-    const linea = document.getElementById('filter-linea')?.value || '';
-    const seccion = document.getElementById('filter-seccion')?.value || '';
+    // Usar la línea REAL de la matriz cargada (puede venir por fallback de otra línea);
+    // así las ediciones siempre caen en el mismo documento que la importación.
+    const linea = (matrixSchema && matrixSchema.linea) || document.getElementById('filter-linea')?.value || '';
+    const seccion = (matrixSchema && matrixSchema.seccion) || document.getElementById('filter-seccion')?.value || '';
     const seccionKey = seccion.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_').toUpperCase();
     const matrixId = `${linea}_${seccionKey}`;
 
@@ -333,15 +341,16 @@ async function saveIluoLevel(workerId, tarea, matrixId, scoreDocId, linea, secci
         const docId = scoreDocId || `${workerId}_${matrixId}`;
         const ref = db.collection('skill_scores').doc(docId);
 
-        // Usamos set con merge para no borrar otros scores del mismo operario
-        const updateData = {};
-        updateData[`scores.${tarea}`] = nivel;
-        updateData['updatedAt'] = new Date().toISOString();
-        updateData['linea'] = linea;
-        updateData['seccion'] = seccion;
-        updateData['idTrabajador'] = workerId;
-
-        await ref.set(updateData, { merge: true });
+        // IMPORTANTE: la notación con punto ('scores.tarea') solo funciona en update();
+        // en set(..., {merge:true}) crearía un campo basura en la raíz del documento.
+        // El merge anidado sí fusiona el mapa scores preservando el resto de tareas.
+        await ref.set({
+            scores: { [tarea]: nivel },
+            updatedAt: new Date().toISOString(),
+            linea: linea,
+            seccion: seccion,
+            idTrabajador: workerId
+        }, { merge: true });
 
         // Actualizar el estado local
         if (!currentScores[workerId]) {
@@ -453,8 +462,10 @@ window.openFUTCard = async function(workerId) {
         }
 
         // 2. Calcular los OVRs (Max ILUO = 4 -> 99)
+        // Sin evaluaciones en la sección -> null (se muestra '—'), para no
+        // confundir "no evaluado" con un nivel bajo real.
         const calculateStat = (sum, count) => {
-            if (count === 0) return 40;
+            if (count === 0) return null;
             const avg = sum / count;
             const stat = Math.round((avg / 4) * 99);
             return Math.min(99, Math.max(30, stat));
@@ -471,8 +482,11 @@ window.openFUTCard = async function(workerId) {
         // 3. Actualizar DOM y Tiers
         document.getElementById('fifa-name').textContent = workerId;
         
-        // Animación del número OVR
+        // Animación del número OVR (si no hay ningún dato ILUO, mostrar '—' sin animar)
         const ovrElement = document.getElementById('fifa-ovr');
+        if (globalOVR === null) {
+            ovrElement.textContent = '—';
+        } else {
         ovrElement.textContent = '0';
         let currentCount = 0;
         const duration = 1000;
@@ -489,11 +503,12 @@ window.openFUTCard = async function(workerId) {
                 ovrElement.textContent = Math.round(currentCount);
             }
         }, intervalTime);
+        }
 
         // Aplicar estilos de la carta según OVR
         const cardElement = document.querySelector('.fifa-card');
         cardElement.className = 'fifa-card'; // reset
-        if (globalOVR < 50) cardElement.classList.add('bronze-card');
+        if (globalOVR === null || globalOVR < 50) cardElement.classList.add('bronze-card');
         else if (globalOVR <= 75) cardElement.classList.add('silver-card');
         else if (globalOVR <= 90) cardElement.classList.add('gold-card');
         else cardElement.classList.add('icon-card');
@@ -506,12 +521,18 @@ window.openFUTCard = async function(workerId) {
             clubIconContainer.innerHTML = '<i class="ph-fill ph-factory"></i>';
         }
         
-        document.getElementById('stat-mel').textContent = mel;
-        document.getElementById('stat-mmc').textContent = mmc;
-        document.getElementById('stat-bat').textContent = bat;
-        document.getElementById('stat-log').textContent = log;
-        document.getElementById('stat-met').textContent = met;
-        document.getElementById('stat-pys').textContent = pys;
+        // Stats por sección: '—' atenuado si no hay evaluaciones
+        const setStat = (id, val) => {
+            const el = document.getElementById(id);
+            el.textContent = val === null ? '—' : val;
+            el.style.opacity = val === null ? '0.35' : '1';
+        };
+        setStat('stat-mel', mel);
+        setStat('stat-mmc', mmc);
+        setStat('stat-bat', bat);
+        setStat('stat-log', log);
+        setStat('stat-met', met);
+        setStat('stat-pys', pys);
 
         // 4. Lógica de Pestañas (Chunking) para el Radar Chart
         const CHUNK_SIZE = 6;
