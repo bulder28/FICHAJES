@@ -162,12 +162,14 @@ function renderMatrix() {
     const turno = document.getElementById('filter-turno')?.value || '';
     const search = (document.getElementById('search-matrix')?.value || '').toUpperCase().trim();
 
-    // Filtrar operarios: mostrar los que tienen score en esta matriz O los que son de esta sección/línea
+    // Filtrar operarios: SIEMPRE se respeta la línea seleccionada.
+    // Dentro de la línea: los asignados a esta sección + los que tengan
+    // niveles registrados en ella (polivalentes con otra sección base).
     let filtered = workersData.filter(w => {
         const hasScore = currentScores[w.id] !== undefined;
         const matchLinea = !linea || w.lineaBase.includes(linea);
         const matchSeccion = !seccion || w.seccionBase.includes(seccion);
-        return hasScore || (matchLinea && matchSeccion);
+        return matchLinea && (matchSeccion || hasScore);
     });
 
     if (turno) filtered = filtered.filter(w => w.turnoBase === turno);
