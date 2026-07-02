@@ -112,12 +112,18 @@ async function loadMatrixData(linea, seccion) {
             .get();
 
         currentScores = {};
+        const preferPrefix = `${matrixSchema.linea}_`;
         scoresSnap.forEach(doc => {
             const d = doc.data();
-            currentScores[d.idTrabajador] = {
-                docId: doc.id,
-                scores: d.scores || {}
-            };
+            const prev = currentScores[d.idTrabajador];
+            if (!prev) {
+                currentScores[d.idTrabajador] = { docId: doc.id, scores: { ...(d.scores || {}) } };
+            } else {
+                // Duplicado (mismo operario, misma sección, distinta línea): fusionar niveles
+                // y quedarse con el docId que corresponde a la línea de la matriz cargada.
+                Object.assign(prev.scores, d.scores || {});
+                if (doc.id.includes(preferPrefix)) prev.docId = doc.id;
+            }
         });
 
         // Construir cabecera dinámica
@@ -243,8 +249,10 @@ function openIluoEditor(worker, tarea, nivelActual, scoreDocId) {
     // Eliminar editor anterior si existe
     document.getElementById('iluo-inline-editor')?.remove();
 
-    const linea = document.getElementById('filter-linea')?.value || '';
-    const seccion = document.getElementById('filter-seccion')?.value || '';
+    // Usar la línea REAL de la matriz cargada (puede venir por fallback de otra línea);
+    // así las ediciones siempre caen en el mismo documento que la importación.
+    const linea = (matrixSchema && matrixSchema.linea) || document.getElementById('filter-linea')?.value || '';
+    const seccion = (matrixSchema && matrixSchema.seccion) || document.getElementById('filter-seccion')?.value || '';
     const seccionKey = seccion.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_').toUpperCase();
     const matrixId = `${linea}_${seccionKey}`;
 
@@ -333,15 +341,16 @@ async function saveIluoLevel(workerId, tarea, matrixId, scoreDocId, linea, secci
         const docId = scoreDocId || `${workerId}_${matrixId}`;
         const ref = db.collection('skill_scores').doc(docId);
 
-        // Usamos set con merge para no borrar otros scores del mismo operario
-        const updateData = {};
-        updateData[`scores.${tarea}`] = nivel;
-        updateData['updatedAt'] = new Date().toISOString();
-        updateData['linea'] = linea;
-        updateData['seccion'] = seccion;
-        updateData['idTrabajador'] = workerId;
-
-        await ref.set(updateData, { merge: true });
+        // IMPORTANTE: la notación con punto ('scores.tarea') solo funciona en update();
+        // en set(..., {merge:true}) crearía un campo basura en la raíz del documento.
+        // El merge anidado sí fusiona el mapa scores preservando el resto de tareas.
+        await ref.set({
+            scores: { [tarea]: nivel },
+            updatedAt: new Date().toISOString(),
+            linea: linea,
+            seccion: seccion,
+            idTrabajador: workerId
+        }, { merge: true });
 
         // Actualizar el estado local
         if (!currentScores[workerId]) {
