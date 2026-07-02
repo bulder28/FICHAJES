@@ -146,7 +146,13 @@ async function initApp() {
         const datalist = document.getElementById('workers-list');
         if (datalist) {
             datalist.innerHTML = '';
-            validWorkerIds = [];
+            validWorkerIds = ['PAVONI'];
+            
+            // Inyectar PAVONI de forma genérica para el MVP
+            const pavoniOpt = document.createElement('option');
+            pavoniOpt.value = 'PAVONI';
+            pavoniOpt.textContent = 'ESCUELA PAVONI (Genérico)';
+            datalist.appendChild(pavoniOpt);
             snapshot.forEach(doc => {
                 const opt = document.createElement('option');
                 const data = doc.data();
