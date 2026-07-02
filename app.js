@@ -4,9 +4,9 @@ let trainingRecords = [];
 let validWorkerIds = []; // Poka-yoke para validar IDs
 
 const lines = ['', 'L1', 'L2', 'L3', 'L4', 'L5', 'BOX 1'];
-const departamentos = ['', 'Montaje Mecánico', 'Montaje Eléctrico', 'Baterías', 'Transformación Metálica', 'Perfilería y Soldadura', 'Logística', 'TEST FINAL', 'REFRIGERACIÓN', 'HIDRÁULICO'];
+const departamentos = ['', 'MONTAJE MECÁNICO', 'MONTAJE ELÉCTRICO', 'BATERÍAS', 'TRANSFORMACIÓN METÁLICA', 'PERFILERÍA Y SOLDADURA', 'LOGÍSTICA', 'TEST FINAL', 'REFRIGERACIÓN', 'HIDRÁULICO'];
 window.iluoData = []; // Caché global de la matriz ILUO
-const shifts = ['Mañana', 'Tarde'];
+const shifts = ['MAÑANA', 'TARDE'];
 
 // Calcular la fecha laboral del turno (con 2 horas de retraso)
 function getShiftDate() {
@@ -18,9 +18,9 @@ function getShiftDate() {
 function getShiftName() {
     const hour = new Date().getHours();
     if (hour >= 6 && hour < 14) {
-        return 'Mañana';
+        return 'MAÑANA';
     }
-    return 'Tarde';
+    return 'TARDE';
 }
 
 // (updateClock movido a shared.js)
