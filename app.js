@@ -531,7 +531,8 @@ function appendRowToTable(record) {
                 <option value="EMPRESA" ${record.trabajador === 'EMPRESA' ? 'selected' : ''}>EMPRESA</option>
                 <option value="ETT - AURA" ${record.trabajador === 'ETT - AURA' ? 'selected' : ''}>ETT - AURA</option>
                 <option value="ETT - EUROFIRM" ${record.trabajador === 'ETT - EUROFIRM' ? 'selected' : ''}>ETT - EUROFIRM</option>
-                ${(record.trabajador && !['EMPRESA', 'ETT - AURA', 'ETT - EUROFIRM'].includes(record.trabajador)) ? `<option value="${record.trabajador}" selected>${record.trabajador}</option>` : ''}
+                <option value="ESCUELA PAVONI" ${record.trabajador === 'ESCUELA PAVONI' ? 'selected' : ''}>ESCUELA PAVONI</option>
+                ${(record.trabajador && !['EMPRESA', 'ETT - AURA', 'ETT - EUROFIRM', 'ESCUELA PAVONI'].includes(record.trabajador)) ? `<option value="${record.trabajador}" selected>${record.trabajador}</option>` : ''}
             </select>
         </td>
         <td class="td-input"><input type="text" class="cell-input" data-field="of" value="${record.of || ''}" placeholder="Nº OF..."></td>
