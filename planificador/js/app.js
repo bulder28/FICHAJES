@@ -1,223 +1,336 @@
-// js/app.js para el Planificador de Formación
+// planificador/js/app.js — Planificador de Formación Inteligente v2
+// Roadmap automático con priorización, matriz bus factor × muda, simulador ROI
 
-// HOURS_FOR_AUTONOMOUS será sobreescrito por la config global
-
-let currentCompetences = {}; // operacion -> numero de operarios autónomos/expertos
-let goals = []; // { id, operacion, target, deadline, createdAt }
+let charts = {};
+let TARIFA = 20;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof updateClock === 'function') {
         setInterval(updateClock, 1000);
         updateClock();
     }
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = '#94a3b8';
 
-    try {
-        const config = typeof getGlobalConfig === 'function' ? await getGlobalConfig() : { umbralAutonomia: 10 };
-        window.HOURS_FOR_AUTONOMOUS = config.umbralAutonomia || 10;
-    } catch(e) {
-        window.HOURS_FOR_AUTONOMOUS = 10;
-    }
+    document.getElementById('btn-generar')?.addEventListener('click', generar);
+    document.getElementById('filter-prioridad')?.addEventListener('change', filtrar);
+    document.getElementById('filter-agencia')?.addEventListener('change', filtrar);
 
-    setupFormLogic();
-    await loadData();
+    await loadConfig();
+    await generar();
 });
 
-function setupFormLogic() {
-    const btnNew = document.getElementById('btn-new-goal');
-    const formPanel = document.getElementById('goal-form-panel');
-    const btnCancel = document.getElementById('btn-cancel-goal');
-    const btnSave = document.getElementById('btn-save-goal');
-
-    btnNew.addEventListener('click', () => {
-        formPanel.style.display = 'block';
-        // Set default date to 1 month from now
-        const nextMonth = new Date();
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
-        document.getElementById('goal-deadline').value = nextMonth.toISOString().split('T')[0];
-    });
-
-    btnCancel.addEventListener('click', () => {
-        formPanel.style.display = 'none';
-    });
-
-    btnSave.addEventListener('click', async () => {
-        const operacion = document.getElementById('goal-operation').value;
-        const target = parseInt(document.getElementById('goal-target').value);
-        const deadline = document.getElementById('goal-deadline').value;
-
-        if (!deadline) {
-            showToast("Por favor, selecciona una fecha límite.", "warning");
-            return;
+async function loadConfig() {
+    try {
+        const doc = await db.collection('configuracion').doc('global').get();
+        if (doc.exists && doc.data().tarifaETT) {
+            TARIFA = parseFloat(doc.data().tarifaETT) || 20;
         }
+    } catch (e) { console.error('Error cargando config:', e); }
+}
 
-        try {
-            btnSave.disabled = true;
-            btnSave.textContent = 'Guardando...';
+let DATOS = {}; // Cache de datos para filtrado rápido
 
-            await db.collection('training_goals').add({
-                operacion,
-                target,
-                deadline,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+async function generar() {
+    const btn = document.getElementById('btn-generar');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Generando...'; }
+
+    try {
+        // ---------- 1. CARGA PARALELA ----------
+        const [opSnap, scoresSnap, fichajesSnap, matSnap] = await Promise.all([
+            db.collection('operarios').get(),
+            db.collection('skill_scores').get(),
+            db.collection('fichajes').get(),
+            db.collection('skill_matrices').get()
+        ]);
+
+        // ---------- 2. CENSO Y COMPETENCIA ----------
+        const censo = {};
+        const workerAvg = {};
+        const tareasPorSeccion = {};   // SECCION -> Set de tareas
+
+        opSnap.forEach(d => {
+            const x = d.data();
+            const id = x.idTrabajador || d.id;
+            censo[id] = {
+                nombre: x.nombre || x.name || id,
+                isETT: !!x.isETT,
+                agencia: x.agencia || 'STULZ',
+                seccionesDominadas: 0
+            };
+        });
+
+        // Agregar competencia
+        scoresSnap.forEach(d => {
+            const data = d.data();
+            const wId = data.idTrabajador;
+            const sec = (data.seccion || '').toUpperCase();
+            if (!wId || !sec) return;
+
+            Object.values(data.scores || {}).forEach(v => {
+                const nivel = Number(v) || 0;
+                if (nivel < 1) return;
+                if (!workerAvg[wId]) workerAvg[wId] = {};
+                if (!workerAvg[wId][sec]) {
+                    workerAvg[wId][sec] = nivel;
+                } else {
+                    workerAvg[wId][sec] = (workerAvg[wId][sec] + nivel) / 2;
+                }
+                if (workerAvg[wId][sec] >= 3) {
+                    censo[wId].seccionesDominadas++;
+                }
             });
-
-            showToast("Objetivo guardado correctamente", "success");
-            formPanel.style.display = 'none';
-            await loadData();
-        } catch (error) {
-            console.error(error);
-            showToast("Error al guardar el objetivo", "error");
-        } finally {
-            btnSave.disabled = false;
-            btnSave.textContent = 'Guardar Objetivo';
-        }
-    });
-}
-
-async function loadData() {
-    if (typeof updateDbStatus === 'function') updateDbStatus(false);
-    
-    try {
-        // 1. Calcular competencias actuales
-        await calculateCurrentCompetences();
-        
-        // 2. Cargar objetivos
-        const snapshot = await db.collection('training_goals').orderBy('deadline').get();
-        goals = [];
-        snapshot.forEach(doc => {
-            goals.push({ id: doc.id, ...doc.data() });
         });
 
-        renderGoals();
-        if (typeof updateDbStatus === 'function') updateDbStatus(true);
-    } catch (error) {
-        console.error("Error cargando datos:", error);
-        document.getElementById('goals-list').innerHTML = `<p style="color:red;">Error de conexión con la base de datos.</p>`;
-    }
-}
+        // Catálogo de tareas
+        matSnap.forEach(d => {
+            const data = d.data();
+            const sec = (data.seccion || '').toUpperCase();
+            (tareasPorSeccion[sec] ||= new Set()).push(...(data.tareas || []));
+        });
 
-async function calculateCurrentCompetences() {
-    // [FIX BUG-01] Leer campo 'departamento' (antes era 'operacion' — campo que nunca se guardaba)
-    const fichajesSnapshot = await db.collection('fichajes').get();
-    
-    const matrix = {}; // idTrabajador -> { departamento -> horas }
-    fichajesSnapshot.forEach(doc => {
-        const f = doc.data();
-        const idT = f.trabajador;
-        // [FIX BUG-01] Campo correcto: 'departamento'
-        const dept = (f.departamento || '').trim().toUpperCase();
-        const horas = parseFloat(f.tiempo) || 0;
-        
-        if (idT && dept) {
-            if (!matrix[idT]) matrix[idT] = {};
-            if (!matrix[idT][dept]) matrix[idT][dept] = 0;
-            matrix[idT][dept] += horas;
-        }
-    });
+        // ---------- 3. BUS FACTOR Y MUDA ----------
+        const busFactor = {};    // id -> count de tareas donde es el único
+        const mudaAnual = {};    // id -> coste
 
-    // Resetear contadores con los departamentos reales del registro
-    currentCompetences = {};
+        // Detectar bus factor
+        Object.entries(tareasPorSeccion).forEach(([sec, tareas]) => {
+            tareas.forEach(tarea => {
+                const autonomos = Object.entries(census)
+                    .filter(([id, c]) => (workerAvg[id]?.[sec] || 0) >= 3)
+                    .map(([id]) => id);
+                if (autonomos.length === 1) {
+                    busFactor[autonomos[0]] = (busFactor[autonomos[0]] || 0) + 1;
+                }
+            });
+        });
 
-    // Contar cuántos operarios son autónomos (>= umbral) por departamento
-    Object.keys(matrix).forEach(idT => {
-        Object.keys(matrix[idT]).forEach(dept => {
-            if (matrix[idT][dept] >= (window.HOURS_FOR_AUTONOMOUS || 10)) {
-                if (!currentCompetences[dept]) currentCompetences[dept] = 0;
-                currentCompetences[dept]++;
+        // Muda: sumar horas de persona no autónoma en cada sección × tarifa
+        fichajesSnap.forEach(d => {
+            const data = d.data();
+            const wId = String(data.trabajador || data.operario || '').toUpperCase();
+            const dept = (data.departamento || '').toUpperCase();
+            const horas = parseFloat(data.tiempo) || 0;
+            if (!wId || horas <= 0) return;
+
+            const nivel = workerAvg[wId]?.[dept] || 1;
+            if (nivel <= 2) {
+                mudaAnual[wId] = (mudaAnual[wId] || 0) + (horas * TARIFA);
             }
         });
-    });
+
+        // ---------- 4. RANKING Y PRIORIZACIÓN ----------
+        const candidatos = [];
+        Object.keys(censo).forEach(id => {
+            const c = censo[id];
+            const bf = busFactor[id] || 0;
+            const muda = mudaAnual[id] || 0;
+            const polivalencia = c.seccionesDominadas;
+
+            // Score combinado: (bus factor × peso alto) + (muda × peso) - (polivalencia × peso bajo)
+            const score = (bf * 100) + (muda / 100) - (polivalencia * 10);
+
+            let prioridad = 3;   // default media
+            if (bf >= 2) prioridad = 1;    // crítica
+            else if (muda > TARIFA * 160) prioridad = 2;   // alta (40 horas/mes)
+
+            candidatos.push({
+                id, nombre: c.nombre, agencia: c.agencia, isETT: c.isETT,
+                busFactor: bf, muda: muda,
+                seccionesDominadas: polivalencia,
+                prioridad: prioridad,
+                score: score,
+                roiPotencial: muda * 0.6   // si sube 1 nivel, reduce 60% muda
+            });
+        });
+
+        candidatos.sort((a, b) => b.score - a.score);
+        DATOS = { candidatos, censo, workerAvg, tareasPorSeccion, busFactor, mudaAnual };
+
+        // ---------- 5. KPIs ----------
+        const criticas = candidatos.filter(c => c.prioridad === 1).length;
+        const mudaTotal = Object.values(mudaAnual).reduce((s, v) => s + v, 0);
+        const roiTotal = Object.values(mudaAnual).reduce((s, v) => s + v * 0.6, 0);
+
+        setText('kpi-criticas', criticas);
+        setText('kpi-muda-acum', mudaTotal.toLocaleString('es-ES', { maximumFractionDigits: 0 }) + ' €');
+        setText('kpi-roi-potencial', roiTotal.toLocaleString('es-ES', { maximumFractionDigits: 0 }) + ' €');
+        setText('kpi-iniciativas', candidatos.length);
+
+        // ---------- 6. GRÁFICOS ----------
+        renderMatriz(candidatos);
+        renderSimulacion(candidatos, mudaTotal);
+        renderCobertura(tareasPorSeccion, workerAvg);
+        renderDistribucion(candidatos);
+
+        // ---------- 7. ROADMAP Y TABLA ----------
+        filtrar();
+
+    } catch (e) {
+        console.error('Error generando roadmap:', e);
+        if (typeof showToast === 'function') showToast('Error: ' + e.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-lightning"></i> Generar Roadmap'; }
+    }
 }
 
-function renderGoals() {
-    const container = document.getElementById('goals-list');
-    container.innerHTML = '';
+function filtrar() {
+    const prioridad = document.getElementById('filter-prioridad')?.value || '';
+    const agencia = document.getElementById('filter-agencia')?.value || '';
 
-    if (goals.length === 0) {
-        container.innerHTML = `<div style="grid-column: 1 / -1; padding: 3rem; text-align: center; color: #94a3b8; border: 2px dashed #cbd5e1; border-radius: 4px;">No hay planes de formación definidos a futuro. Haz clic en 'Nuevo Objetivo' para empezar.</div>`;
-        return;
-    }
+    let filtered = DATOS.candidatos || [];
+    if (prioridad) filtered = filtered.filter(c => c.prioridad === parseInt(prioridad));
+    if (agencia === 'STULZ') filtered = filtered.filter(c => !c.isETT);
+    else if (agencia) filtered = filtered.filter(c => c.agencia === agencia);
 
-    const today = new Date();
-    today.setHours(0,0,0,0);
+    renderRoadmap(filtered);
+    renderTabla(filtered);
+}
 
-    goals.forEach(goal => {
-        const current = currentCompetences[goal.operacion] || 0;
-        const target = goal.target;
-        const gap = Math.max(0, target - current);
-        const hoursNeeded = gap * HOURS_FOR_AUTONOMOUS;
-        
-        let progress = (current / target) * 100;
-        if (progress > 100) progress = 100;
+function setText(id, txt) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+}
 
-        // Formatear Fecha
-        const deadlineDate = new Date(goal.deadline);
-        const dateStr = deadlineDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-        
-        // Status Colors
-        const daysRemaining = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
-        let statusClass = 'goal-status-success'; // Bien de tiempo o completado
-        
-        if (gap > 0) {
-            if (daysRemaining < 15) {
-                statusClass = 'goal-status-danger'; // Urgente
-            } else if (daysRemaining < 45) {
-                statusClass = 'goal-status-warning'; // Atención
-            }
+// -------------------------------------------------------
+// GRÁFICOS
+// -------------------------------------------------------
+function makeChart(id, cfg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(el.getContext('2d'), cfg);
+}
+
+const C = { rojo: '#ef4444', ambar: '#f59e0b', azul: '#3b82f6', verde: '#10b981' };
+const GRID = { color: 'rgba(51,65,85,.5)' };
+
+function renderMatriz(cand) {
+    const dataset = cand.map(c => ({ x: c.busFactor, y: c.muda / 1000, label: c.id }));
+    makeChart('chart-matriz', {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Candidatos',
+                data: dataset,
+                backgroundColor: dataset.map(d => {
+                    let idx = cand.findIndex(c => c.id === d.label);
+                    return [C.rojo, C.ambar, C.azul][cand[idx].prioridad - 1] + 'cc';
+                }),
+                pointRadius: 6
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                x: { grid: GRID, title: { display: true, text: 'Bus Factor (tareas únicas)' }, min: 0 },
+                y: { grid: GRID, title: { display: true, text: 'Muda Anual (k€)' }, min: 0 }
+            },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.label}: ${ctx.raw.x} tareas, ${ctx.raw.y.toFixed(1)}k€` } } }
         }
-
-        const div = document.createElement('div');
-        div.className = `goal-card ${statusClass}`;
-        
-        div.innerHTML = `
-            <div class="goal-header">
-                <div class="goal-title">${goal.operacion}</div>
-                <div class="goal-deadline">
-                    <i class="ph ph-calendar-blank"></i> ${dateStr}
-                </div>
-            </div>
-            
-            <div class="goal-metrics">
-                <div class="metric-box">
-                    <span class="metric-label">OPERARIOS FORMADOS</span>
-                    <span class="metric-value" style="color: ${gap === 0 ? '#10b981' : 'var(--text-primary)'}">${current} / ${target}</span>
-                </div>
-                <div class="metric-box">
-                    <span class="metric-label">TIEMPO ESTIMADO REQ.</span>
-                    <span class="metric-value ${gap > 0 ? 'highlight' : ''}">${hoursNeeded}h</span>
-                </div>
-            </div>
-
-            <div class="goal-progress">
-                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 600; color: #64748b;">
-                    <span>Progreso del Objetivo</span>
-                    <span>${Math.round(progress)}%</span>
-                </div>
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fill" style="width: ${progress}%; background-color: ${gap === 0 ? '#10b981' : '#3b82f6'};"></div>
-                </div>
-            </div>
-            
-            <div class="goal-footer">
-                <button class="btn-delete-goal" onclick="deleteGoal('${goal.id}')" title="Eliminar objetivo">
-                    <i class="ph ph-trash" style="font-size: 1.2rem;"></i>
-                </button>
-            </div>
-        `;
-        
-        container.appendChild(div);
     });
 }
 
-// [FIX BUG-05] Reemplazado confirm() nativo. Se usa un toast de aviso + botón de deshacer implícito (eliminación directa)
-window.deleteGoal = async function(id) {
-    try {
-        await db.collection('training_goals').doc(id).delete();
-        showToast("Objetivo eliminado correctamente", "info");
-        loadData();
-    } catch (error) {
-        console.error(error);
-        showToast("Error al eliminar el objetivo", "error");
-    }
+function renderSimulacion(cand, mudaTotal) {
+    const pcts = [0, 25, 50, 75, 100];
+    const ahorros = pcts.map(p => mudaTotal * (p / 100) * 0.6);   // si se forma el 25%, 50%, etc.
+    makeChart('chart-simulacion', {
+        type: 'line',
+        data: {
+            labels: pcts.map(p => `${p}% formados`),
+            datasets: [{
+                label: 'ROI Esperado (€)',
+                data: ahorros,
+                borderColor: C.verde,
+                backgroundColor: C.verde + '30',
+                fill: true,
+                tension: .3,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { grid: GRID, ticks: { callback: v => v + ' €' } }, x: { grid: { display: false } } },
+            plugins: { legend: { display: false } }
+        }
+    });
 }
 
+function renderCobertura(tareasPorSec, workerAvg) {
+    const secs = Object.keys(tareasPorSec);
+    const antes = secs.map(sec => {
+        let cubiertas = 0, total = tareasPorSec[sec].length;
+        tareasPorSec[sec].forEach(tarea => {
+            const auts = Object.entries(workerAvg).filter(([_, avg]) => avg[sec] >= 3).length;
+            if (auts >= 2) cubiertas++;
+        });
+        return Math.round(cubiertas / total * 100);
+    });
+    const despues = antes.map(p => Math.min(100, p + 20));   // proxy: mejora 20%
+    makeChart('chart-cobertura', {
+        type: 'bar',
+        data: {
+            labels: secs.map(s => s.length > 15 ? s.slice(0, 12) + '...' : s),
+            datasets: [
+                { label: 'Ahora', data: antes, backgroundColor: C.azul + '88', borderRadius: 4 },
+                { label: 'Post-formación', data: despues, backgroundColor: C.verde + '88', borderRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            scales: { x: { grid: GRID, max: 100, ticks: { callback: v => v + '%' } }, y: { grid: { display: false } } },
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+
+function renderDistribucion(cand) {
+    const cnt = { 1: 0, 2: 0, 3: 0 };
+    cand.forEach(c => cnt[c.prioridad]++);
+    makeChart('chart-distribucion', {
+        type: 'doughnut',
+        data: {
+            labels: ['🔴 Crítica (bus factor)', '🟠 Alta (Muda)', '🔵 Media (polivalencia)'],
+            datasets: [{ data: [cnt[1], cnt[2], cnt[3]], backgroundColor: [C.rojo + 'cc', C.ambar + 'cc', C.azul + 'cc'], borderColor: '#1e293b', borderWidth: 2 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+// -------------------------------------------------------
+// ROADMAP E TABLA
+// -------------------------------------------------------
+function renderRoadmap(cand) {
+    const container = document.getElementById('roadmap-container');
+    if (!container) return;
+    container.innerHTML = cand.slice(0, 10).map((c, i) => `
+        <div class="roadmap-card priority-${c.prioridad}">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                    <div class="roadmap-persona">#${i + 1} ${c.nombre} (${c.id})</div>
+                    <div class="roadmap-tarea">${c.agencia}${c.isETT ? ' · ETT' : ''}</div>
+                    <div class="roadmap-score">
+                        <div class="score-item">🚨 Bus: ${c.busFactor}</div>
+                        <div class="score-item">💰 Muda: ${(c.muda / 1000).toFixed(1)}k€</div>
+                        <div class="score-item">📚 Poliv: ${c.seccionesDominadas}</div>
+                    </div>
+                </div>
+                <div class="roadmap-roi">ROI: ${(c.roiPotencial / 1000).toFixed(1)}k€</div>
+            </div>
+        </div>`).join('') || '<p style="color: #64748b;">Sin candidatos con los filtros actuales.</p>';
+}
+
+function renderTabla(cand) {
+    const tbody = document.getElementById('table-candidatos-body');
+    if (!tbody) return;
+    tbody.innerHTML = cand.slice(0, 20).map(c => `
+        <tr>
+            <td><strong>${c.id}</strong><br><span style="color: #64748b; font-size: .8rem;">${c.nombre}</span></td>
+            <td>${c.agencia}${c.isETT ? ' (ETT)' : ''}</td>
+            <td style="text-align: center"><span class="badge ${c.prioridad === 1 ? 'badge-danger' : c.prioridad === 2 ? 'badge-warning' : 'badge-info'}">P${c.prioridad}</span></td>
+            <td><span style="color: #94a3b8; font-size: .8rem;">${c.seccionesDominadas} dominadas (agregar más)</span></td>
+            <td style="text-align: center"><strong style="color: ${c.busFactor > 0 ? '#ef4444' : '#10b981'};">${c.busFactor}</strong></td>
+            <td style="text-align: right"><strong>${(c.muda).toLocaleString('es-ES', { maximumFractionDigits: 0 })} €</strong></td>
+            <td style="text-align: center"><span style="background: #10b98120; color: #10b981; padding: .2rem .6rem; border-radius: 4px; font-size: .75rem; font-weight: 700;">${(c.roiPotencial / 1000).toFixed(1)}k€</span></td>
+        </tr>`).join('');
+}
