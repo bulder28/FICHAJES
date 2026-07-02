@@ -1,114 +1,160 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STULZ - Planificador de Formación</title>
-    <!-- Mismos iconos y fuentes que la app principal -->
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Outfit:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
+    <title>STULZ - Planificador de Formación Inteligente</title>
 
     <link rel="stylesheet" href="../style.css">
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+        @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+        @media (max-width: 1100px) { .grid-2 { grid-template-columns: 1fr; } }
+        .roadmap-card { background: rgba(15,23,42,.5); border: 1px solid rgba(100,116,139,.2); border-radius: 12px; padding: 1.25rem; margin-bottom: .8rem; }
+        .roadmap-card.priority-1 { border-left: 4px solid #ef4444; }
+        .roadmap-card.priority-2 { border-left: 4px solid #f59e0b; }
+        .roadmap-card.priority-3 { border-left: 4px solid #3b82f6; }
+        .roadmap-persona { font-weight: 700; font-size: .95rem; }
+        .roadmap-tarea { color: #94a3b8; font-size: .85rem; }
+        .roadmap-roi { background: #10b98120; color: #10b981; padding: .3rem .7rem; border-radius: 6px; font-size: .75rem; font-weight: 700; }
+        .roadmap-score { display: flex; gap: .5rem; margin-top: .5rem; font-size: .75rem; }
+        .score-item { background: rgba(148,163,184,.1); padding: .2rem .5rem; border-radius: 4px; }
+    </style>
 </head>
-
 <body>
-    <div class="app-layout">
-        <!-- Sidebar inyectado dinámicamente -->
-        <aside id="sidebar-container"></aside>
+    <div id="sidebar-container"></div>
 
-        <!-- Área Principal de Trabajo -->
-        <div class="workspace">
-            <header class="workspace-header">
-                <div class="workspace-title">
-                    <h2
-                        style="color: var(--stulz-red); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="ph ph-calendar-check"></i> PLANIFICADOR DE FORMACIÓN
-                    </h2>
-                    <div class="subtitle"
-                        style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem; font-weight: 500;">
-                        Previsión de Capacidades Operativas (Workforce Planning)</div>
-                </div>
-                <div class="header-actions">
-                    <button id="btn-new-goal" class="btn-action"
-                        style="background-color: var(--stulz-red); color: white; border: none; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-radius: 2px;">
-                        <i class="ph ph-plus"></i> NUEVO OBJETIVO
-                    </button>
-                </div>
-            </header>
-
-            <main class="planner-container" style="flex: 1; display: flex; flex-direction: column; gap: 1.5rem;">
-
-                <!-- Panel de Formulario Oculto (Se muestra al hacer clic en Nuevo Objetivo) -->
-                <div id="goal-form-panel"
-                    style="display: none; background: white; padding: 1.5rem; border-radius: 4px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                    <h3 style="margin-bottom: 1rem; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="ph ph-target"></i> Definir Nuevo Objetivo de Formación</h3>
-                    <div class="form-grid"
-                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label
-                                style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">OPERACIÓN</label>
-                            <select id="goal-operation"
-                                style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 2px;">
-                                <!-- [FIX BUG-01] Valores alineados con campo 'departamento' del registro -->
-                                <option value="Montaje Mecánico">Montaje Mecánico</option>
-                                <option value="Montaje Eléctrico">Montaje Eléctrico</option>
-                                <option value="Baterías">Baterías</option>
-                                <option value="Transformación Metálica">Transformación Metálica</option>
-                                <option value="Perfilería y Soldadura">Perfilería y Soldadura</option>
-                                <option value="Logística">Logística</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label
-                                style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">OBJETIVO
-                                (OPERARIOS AUTÓNOMOS)</label>
-                            <input type="number" id="goal-target" min="1" max="50" value="4"
-                                style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 2px;">
-                        </div>
-                        <div>
-                            <label
-                                style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem;">FECHA
-                                LÍMITE (DEADLINE)</label>
-                            <input type="date" id="goal-deadline"
-                                style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 2px;">
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                        <button id="btn-cancel-goal"
-                            style="padding: 0.5rem 1rem; background: transparent; border: 1px solid #cbd5e1; cursor: pointer; font-weight: 600;">Cancelar</button>
-                        <button id="btn-save-goal"
-                            style="padding: 0.5rem 1rem; background: var(--stulz-red); color: white; border: none; cursor: pointer; font-weight: 600;">Guardar
-                            Objetivo</button>
-                    </div>
-                </div>
-
-                <!-- Cuadro de Mando de Metas Activas -->
-                <div class="goals-dashboard" id="goals-list"
-                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem;">
-                    <!-- Las metas se inyectarán aquí -->
-                </div>
-
-            </main>
+    <div class="main-content dashboard-theme">
+        <div class="dashboard-header">
+            <div>
+                <h1>Planificador de Formación</h1>
+                <p>Roadmap Inteligente · Priorización automática por bus factor + ROI + coste Muda</p>
+            </div>
+            <div class="dashboard-controls">
+                <select id="filter-prioridad" class="dashboard-input">
+                    <option value="">Todas las prioridades</option>
+                    <option value="1">🔴 Crítica (bus factor alto)</option>
+                    <option value="2">🟠 Alta (Muda significativa)</option>
+                    <option value="3">🔵 Media (polivalencia)</option>
+                </select>
+                <select id="filter-agencia" class="dashboard-input">
+                    <option value="">Todas (STULZ + ETT)</option>
+                    <option value="STULZ">STULZ</option>
+                    <option value="AURA">AURA (ETT)</option>
+                    <option value="EUROFIRMS">EuroFirms (ETT)</option>
+                </select>
+                <button class="btn-dashboard" id="btn-generar"><i class="ph ph-lightning"></i> Generar Roadmap</button>
+            </div>
         </div>
+
+        <!-- ============ KPIs OPERATIVOS ============ -->
+        <div class="kpi-grid">
+            <div class="kpi-card danger">
+                <div class="kpi-icon"><i class="ph ph-fire"></i></div>
+                <div class="kpi-data">
+                    <span>Personas en Riesgo Crítico</span>
+                    <h2 id="kpi-criticas">—</h2>
+                    <span class="kpi-sub">Bus factor alto — formación urgente</span>
+                </div>
+            </div>
+            <div class="kpi-card warning" style="border-left: 3px solid #f59e0b;">
+                <div class="kpi-icon" style="color: #f59e0b;"><i class="ph ph-trending-down"></i></div>
+                <div class="kpi-data">
+                    <span>Muda Acumulada (12m)</span>
+                    <h2 id="kpi-muda-acum">—</h2>
+                    <span class="kpi-sub">Coste por formación pendiente</span>
+                </div>
+            </div>
+            <div class="kpi-card success">
+                <div class="kpi-icon"><i class="ph ph-target"></i></div>
+                <div class="kpi-data">
+                    <span>ROI Potencial (12m)</span>
+                    <h2 id="kpi-roi-potencial">—</h2>
+                    <span class="kpi-sub">Ahorro si se completan plans</span>
+                </div>
+            </div>
+            <div class="kpi-card info">
+                <div class="kpi-icon"><i class="ph ph-presentation-chart"></i></div>
+                <div class="kpi-data">
+                    <span>Iniciativas Activas</span>
+                    <h2 id="kpi-iniciativas">—</h2>
+                    <span class="kpi-sub">Planes de formación en curso</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ FILA 1: MATRIZ PRIORIDAD + SIMULADOR ============ -->
+        <div class="grid-2">
+            <div class="chart-card">
+                <h3><i class="ph ph-scatter-plot"></i> Matriz Bus Factor × Muda
+                    <small>Cada punto = persona. Arriba-derecha = máxima urgencia</small></h3>
+                <div class="chart-container" style="height: 300px;"><canvas id="chart-matriz"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3><i class="ph ph-chart-line"></i> Simulación: ROI vs Horas de Formación
+                    <small>Si formas X personas durante Y horas, ahorras Z</small></h3>
+                <div class="chart-container" style="height: 300px;"><canvas id="chart-simulacion"></canvas></div>
+            </div>
+        </div>
+
+        <!-- ============ FILA 2: GRÁFICOS CONTEXTO ============ -->
+        <div class="grid-2">
+            <div class="chart-card">
+                <h3><i class="ph ph-users-three"></i> Cobertura de Conocimiento: Antes vs Después
+                    <small>Tareas con ≥2 autónomos — mejora proyectada</small></h3>
+                <div class="chart-container" style="height: 280px;"><canvas id="chart-cobertura"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3><i class="ph ph-chart-bar"></i> Distribución de Prioridad
+                    <small>Cuántas personas en cada categoría de riesgo</small></h3>
+                <div class="chart-container" style="height: 280px;"><canvas id="chart-distribucion"></canvas></div>
+            </div>
+        </div>
+
+        <!-- ============ ROADMAP INTERACTIVO ============ -->
+        <div style="margin-bottom: 2rem;">
+            <h2 style="margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem;">
+                <i class="ph ph-road-horizon" style="font-size: 1.4rem;"></i> Roadmap de Formación (Automático)
+            </h2>
+            <p style="color: #94a3b8; font-size: .85rem; margin-bottom: 1.25rem;">
+                <i class="ph ph-info"></i> Priorizado por: (1) Bus factor del operario, (2) Coste de Muda anual, (3) Secciones faltantes para polivalencia
+            </p>
+            <div id="roadmap-container" style="display: grid; grid-template-columns: 1fr; gap: 0.8rem;"></div>
+        </div>
+
+        <!-- ============ TABLA: CANDIDATOS A FORMACIÓN ============ -->
+        <div class="chart-card">
+            <h3><i class="ph ph-list-numbers"></i> Candidatos Priorizados a Formación
+                <small>Ordenados por impacto: primero críticos, luego Muda, luego polivalencia</small></h3>
+            <div class="table-container-dash">
+                <table class="dash-table">
+                    <thead>
+                        <tr>
+                            <th>Persona</th>
+                            <th>Agencia</th>
+                            <th style="text-align: center">Prioridad</th>
+                            <th>Secciones a Dominar</th>
+                            <th style="text-align: center">Bus Factor</th>
+                            <th style="text-align: right">Muda Anual Est.</th>
+                            <th style="text-align: center">ROI Esperado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-candidatos-body"></tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Contenedor de Notificaciones -->
-    <div id="toast-container" class="toast-container"></div>
-
-    <!-- Firebase SDK (Compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
     <script src="../components/sidebar.js"></script>
     <script src="../shared.js"></script>
     <script src="js/app.js"></script>
 </body>
-
 </html>
