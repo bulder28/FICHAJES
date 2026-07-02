@@ -555,9 +555,6 @@ function appendRowToTable(record) {
         </td>
         <td class="td-input"><input type="date" class="cell-input" data-field="fecha" value="${record.fecha || ''}" disabled title="Fecha automática calculada por el sistema"></td>
         <td class="td-input"><input type="number" step="0.5" min="0" class="cell-input calc-time" data-field="tiempo" value="${record.tiempo || ''}" placeholder="0.0"></td>
-        <td class="td-input" style="text-align: center; vertical-align: middle;">
-            <div class="skill-indicator skill-unknown" data-worker-id="${record.trabajador || ''}" data-machine-id="${record.maquina || ''}">-</div>
-        </td>
         <td class="td-actions">
             <button class="btn-delete" title="Eliminar fila">
                 <i class="ph ph-trash"></i>
