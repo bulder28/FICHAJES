@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Listado ID · Operario — RRHH | STULZ Tecnivel</title>
+<style>
+:root{
+  --red:#d40511; --ink:#0f172a; --ink-dim:#64748b; --line:#e2e8f0; --bg:#f8fafc;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:2rem}
+.sheet{max-width:900px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:8px;padding:2.5rem}
+
+header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--red);padding-bottom:1rem;margin-bottom:.75rem}
+h1{font-size:1.3rem;letter-spacing:.5px}
+h1 small{display:block;font-size:.75rem;color:var(--ink-dim);font-weight:400;letter-spacing:1px;margin-top:.2rem}
+.meta{text-align:right;font-size:.75rem;color:var(--ink-dim);line-height:1.6}
+
+.confidencial{
+  background:#fef2f2;border:1px solid #fecaca;color:#991b1b;
+  font-size:.72rem;padding:.5rem .75rem;border-radius:6px;margin-bottom:1.25rem;line-height:1.5;
+}
+
+.toolbar{display:flex;gap:.75rem;margin-bottom:1.25rem;align-items:center;flex-wrap:wrap}
+.toolbar input{flex:1;min-width:200px;padding:.55rem .8rem;border:1px solid var(--line);border-radius:6px;font-size:.9rem}
+.toolbar button{padding:.55rem 1.2rem;border:none;border-radius:6px;background:var(--red);color:#fff;font-weight:600;cursor:pointer;font-size:.85rem}
+.toolbar button.sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
+
+h2.grupo{font-size:.85rem;letter-spacing:2px;color:var(--red);margin:1.5rem 0 .5rem;text-transform:uppercase;
+  border-bottom:1px solid var(--line);padding-bottom:.3rem;display:flex;justify-content:space-between}
+h2.grupo .n{color:var(--ink-dim);font-weight:400;letter-spacing:0}
+
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;font-size:.68rem;letter-spacing:1px;text-transform:uppercase;color:var(--ink-dim);
+  padding:.4rem .6rem;border-bottom:2px solid var(--line)}
+td{padding:.42rem .6rem;border-bottom:1px solid var(--line)}
+tr:nth-child(even) td{background:#fafbfc}
+td.id{font-family:'Consolas','Courier New',monospace;font-weight:700;white-space:nowrap}
+td.firma{width:150px;border-bottom:1px solid var(--line)}
+.status{padding:2.5rem;text-align:center;color:var(--ink-dim)}
+
+@media print{
+  body{background:#fff;padding:0}
+  .sheet{border:none;border-radius:0;padding:0;max-width:none}
+  .toolbar{display:none}
+  h2.grupo{break-after:avoid}
+  tr{break-inside:avoid}
+  thead{display:table-header-group}
+  @page{margin:1.5cm}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <h1>LISTADO DE CORRESPONDENCIA ID · OPERARIO
+      <small>STULZ TECNIVEL S.A. · GESTIÓN DE PERSONAL · USO INTERNO RRHH</small>
+    </h1>
+    <div class="meta">
+      Generado: <span id="fecha"></span><br>
+      Total operarios: <span id="total">—</span>
+    </div>
+  </header>
+
+  <div class="confidencial">
+    <b>DOCUMENTO CONFIDENCIAL — PROTECCIÓN DE DATOS.</b> Este listado vincula los identificadores
+    anónimos de la aplicación con datos personales. Distribución restringida a RRHH y responsables autorizados.
+    No publicar, no dejar en zonas comunes, destruir de forma segura tras su uso.
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="buscar" placeholder="Filtrar por ID o nombre..." oninput="render()">
+    <button class="sec" onclick="location.reload()">Recargar</button>
+    <button onclick="window.print()">🖨 Imprimir</button>
+  </div>
+
+  <div id="contenido" class="status">Cargando operarios...</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey:"AIzaSyCyDAOSXzvQkBiOiCpLdqqwPxqphhR7e94",
+  authDomain:"fichajes-formaci.firebaseapp.com",
+  projectId:"fichajes-formaci",
+  storageBucket:"fichajes-formaci.firebasestorage.app",
+  messagingSenderId:"799065210074",
+  appId:"1:799065210074:web:a5a08917a983364fdfb9e3"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let OPS = [];
+
+document.getElementById('fecha').textContent = new Date().toLocaleString('es-ES', {dateStyle:'long', timeStyle:'short'});
+
+// Clasificación por prefijo de ID: 00=STULZ, 04=Aura, 06=EuroFirms
+function grupoDe(op){
+  const id = op.id;
+  if (id.startsWith('00')) return 'STULZ (Personal propio)';
+  if (id.startsWith('04')) return 'ETT · AURA';
+  if (id.startsWith('06')) return 'ETT · EUROFIRMS';
+  return 'OTROS';
+}
+
+async function load(){
+  try{
+    const snap = await db.collection('operarios').get();
+    OPS = snap.docs.map(d => {
+      const x = d.data();
+      return {
+        id: x.idTrabajador || d.id,
+        nombre: x.nombre || x.name || '(sin nombre)',
+        seccion: x.seccionBase || x.seccionAsignada || '',
+        linea: x.lineaBase || '',
+        turno: x.turnoBase || ''
+      };
+    }).sort((a,b) => a.id.localeCompare(b.id));
+    document.getElementById('total').textContent = OPS.length;
+    render();
+  }catch(e){
+    document.getElementById('contenido').innerHTML =
+      '<div class="status">Error cargando operarios: ' + e.message + '</div>';
+  }
+}
+
+function render(){
+  const q = (document.getElementById('buscar').value || '').toUpperCase().trim();
+  const list = q
+    ? OPS.filter(o => o.id.includes(q) || o.nombre.toUpperCase().includes(q))
+    : OPS;
+
+  if(!list.length){
+    document.getElementById('contenido').innerHTML = '<div class="status">Sin resultados.</div>';
+    return;
+  }
+
+  const orden = ['STULZ (Personal propio)', 'ETT · AURA', 'ETT · EUROFIRMS', 'OTROS'];
+  const grupos = {};
+  list.forEach(o => (grupos[grupoDe(o)] ||= []).push(o));
+
+  let html = '';
+  orden.forEach(g => {
+    if(!grupos[g]) return;
+    html += `<h2 class="grupo">${g} <span class="n">${grupos[g].length} operarios</span></h2>
+      <table>
+        <thead><tr>
+          <th style="width:80px">ID</th><th>Nombre y apellidos</th>
+          <th style="width:170px">Sección</th><th style="width:70px">Línea</th><th style="width:80px">Turno</th>
+        </tr></thead>
+        <tbody>` +
+      grupos[g].map(o => `<tr>
+          <td class="id">${o.id}</td>
+          <td>${o.nombre}</td>
+          <td>${o.seccion}</td>
+          <td>${o.linea}</td>
+          <td>${o.turno}</td>
+        </tr>`).join('') +
+      `</tbody></table>`;
+  });
+
+  document.getElementById('contenido').innerHTML = html;
+}
+
+load();
+</script>
+</body>
+</html>
