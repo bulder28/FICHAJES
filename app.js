@@ -4,7 +4,7 @@ let trainingRecords = [];
 let validWorkerIds = []; // Poka-yoke para validar IDs
 
 const lines = ['', 'L1', 'L2', 'L3', 'L4', 'L5', 'BOX 1'];
-const departamentos = ['', 'Montaje Mecánico', 'Montaje Eléctrico', 'Baterías', 'Transformación Metálica', 'Perfilería y Soldadura', 'Logística'];
+const departamentos = ['', 'Montaje Mecánico', 'Montaje Eléctrico', 'Baterías', 'Transformación Metálica', 'Perfilería y Soldadura', 'Logística', 'TEST FINAL', 'REFRIGERACIÓN', 'HIDRÁULICO'];
 window.iluoData = []; // Caché global de la matriz ILUO
 const shifts = ['Mañana', 'Tarde'];
 
@@ -32,6 +32,7 @@ async function initApp() {
     // Lógica para Modo Administrador
     const urlParams = new URLSearchParams(window.location.search);
     let isAdmin = urlParams.get('admin') === '1';
+    window.lockedLinea = urlParams.get('linea') || null;
 
     const enableAdminMode = () => {
         isAdmin = true;
@@ -270,11 +271,13 @@ function setupWorkerModal() {
 
     btnConfirm.addEventListener('click', async () => {
         const nombre = nameInput.value.trim().toUpperCase();
-        let idTrabajador = idInput.value.trim().toUpperCase();
+        const prefixSelect = document.getElementById('new-worker-prefix');
+        const prefix = prefixSelect ? prefixSelect.value : "00";
+        let rawId = idInput.value.trim().toUpperCase();
         
-        // Auto-completar ID de empresa
-        if (/^\d{3}$/.test(idTrabajador)) {
-            idTrabajador = "00" + idTrabajador;
+        let idTrabajador = rawId;
+        if (/^\d{3}$/.test(rawId)) {
+            idTrabajador = prefix + rawId;
         }
         
         if (nombre.length < 3) {
@@ -288,8 +291,8 @@ function setupWorkerModal() {
             idInput.focus();
             return;
         }
-        if (!idTrabajador.startsWith("00") && !idTrabajador.startsWith("04") && !idTrabajador.startsWith("06")) {
-            showToast("El ID debe empezar por 00 (Empresa), o por 04/06 (ETT).", "warning");
+        if (!idTrabajador.startsWith("00") && !idTrabajador.startsWith("04") && !idTrabajador.startsWith("06") && !idTrabajador.startsWith("08")) {
+            showToast("El ID debe empezar por 00 (Empresa), 04/06 (ETT) o 08 (PAVONI).", "warning");
             return;
         }
 
@@ -382,7 +385,7 @@ async function addRow() {
         of: '',
         departamento: '',
         maquina: '',
-        linea: '',
+        linea: window.lockedLinea || '',
         fecha: today,
         tiempo: 0,
         createdAt: Date.now()
@@ -430,16 +433,18 @@ async function updateRecordToFirebase(id, field, value) {
         }
     } else if (field === 'trabajador') {
         parsedValue = value.trim().toUpperCase();
-        // POKA-YOKE: Validar que el trabajador existe
+        // POKA-YOKE desactivado temporalmente para el MVP (ID manual o select)
+        /*
         if (parsedValue !== "" && validWorkerIds.length > 0 && !validWorkerIds.includes(parsedValue)) {
             showToast("⚠️ Poka-Yoke: ID Trabajador no existe en la BD.", "error");
             parsedValue = "";
             const row = document.querySelector(`tr[data-id="${id}"]`);
             if(row) {
-                const input = row.querySelector('input[data-field="trabajador"]');
+                const input = row.querySelector('[data-field="trabajador"]');
                 if(input) input.value = "";
             }
         }
+        */
     } else if (field === 'of') {
         // [POKA-YOKE Industria 4.0] Normalizar OF: mayúsculas, sin espacios, sin caracteres extraños
         parsedValue = value.trim().toUpperCase().replace(/\s+/g, '');
@@ -514,7 +519,15 @@ function appendRowToTable(record) {
     const availableTasks = getAvailableMachines(record.linea, record.departamento);
     
     tr.innerHTML = `
-        <td class="td-input"><input type="text" class="cell-input" data-field="trabajador" list="workers-list" value="${record.trabajador || ''}" placeholder="ID Trabajador..."></td>
+        <td class="td-input">
+            <select class="cell-input" data-field="trabajador">
+                <option value="">SELECCIONE...</option>
+                <option value="EMPRESA" ${record.trabajador === 'EMPRESA' ? 'selected' : ''}>EMPRESA</option>
+                <option value="ETT - AURA" ${record.trabajador === 'ETT - AURA' ? 'selected' : ''}>ETT - AURA</option>
+                <option value="ETT - EUROFIRM" ${record.trabajador === 'ETT - EUROFIRM' ? 'selected' : ''}>ETT - EUROFIRM</option>
+                ${(record.trabajador && !['EMPRESA', 'ETT - AURA', 'ETT - EUROFIRM'].includes(record.trabajador)) ? `<option value="${record.trabajador}" selected>${record.trabajador}</option>` : ''}
+            </select>
+        </td>
         <td class="td-input"><input type="text" class="cell-input" data-field="of" value="${record.of || ''}" placeholder="Nº OF..."></td>
         <td class="td-input">
             <select class="cell-input" data-field="departamento">
@@ -529,7 +542,7 @@ function appendRowToTable(record) {
             </select>
         </td>
         <td class="td-input">
-            <select class="cell-input" data-field="linea">
+            <select class="cell-input" data-field="linea" ${window.lockedLinea ? 'disabled style="background-color: rgba(0,0,0,0.05); cursor: not-allowed; border-style: dashed;"' : ''}>
                 ${lines.map(l => `<option value="${l}" ${record.linea === l ? 'selected' : (l==='' && !record.linea ? 'selected' : '')}>${l || 'SELECCIONE...'}</option>`).join('')}
             </select>
         </td>
@@ -584,10 +597,9 @@ function updateSkillIndicator(tr, record) {
         const indicator = tr.querySelector('.skill-indicator');
         if (!indicator) return;
         
-        if (!record || !record.trabajador || !record.maquina || !record.linea || !record.departamento) {
-            indicator.className = 'skill-indicator skill-unknown';
-            indicator.textContent = '-';
-            indicator.title = 'Falta ID, Línea, Sección o Máquina';
+        if (!record || !record.trabajador || !record.linea || !record.departamento) {
+            indicator.className = 'status-indicator status-incomplete';
+            indicator.title = 'Falta ID, Línea o Sección';
             return;
         }
 
@@ -643,10 +655,10 @@ function attachEventListenersToRow(tr, id) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     const record = trainingRecords.find(r => r.id === id);
-                    if (record && (record.trabajador||'').trim() !== '' && (record.of||'').trim() !== '' && record.tiempo > 0 && (record.linea||'') !== '' && (record.departamento||'') !== '' && (record.maquina||'') !== '') {
+                    if (record && (record.trabajador||'').trim() !== '' && (record.of||'').trim() !== '' && record.tiempo > 0 && (record.linea||'') !== '' && (record.departamento||'') !== '') {
                         addRow();
                     } else {
-                        showToast("Faltan campos obligatorios (Operario, OF, Línea, Departamento, Máquina, Horas)", "warning");
+                        showToast("Faltan campos obligatorios (Operario, OF, Línea, Departamento, Horas)", "warning");
                     }
                 }
             });

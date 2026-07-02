@@ -26,7 +26,7 @@ function renderSidebar() {
                     <i class="ph ph-clipboard-text"></i> Registro Formación
                 </a>
                 <a href="${base}planificador/planificador.html" class="nav-item ${currentModule === 'planificador' ? 'active' : ''}">
-                    <i class="ph ph-calendar-check"></i> Planificador Formación
+                    <i class="ph ph-calendar"></i> Planificador Formación
                 </a>
                 <a href="${base}polivalencia/polivalencia.html" class="nav-item ${currentModule === 'polivalencia' ? 'active' : ''}">
                     <i class="ph ph-users-three"></i> Matriz Polivalencia
@@ -63,9 +63,9 @@ function renderSidebar() {
     `;
 
     // [POKA-YOKE INDUSTRIA 4.0] Prevención de navegación en planta
-    // Si la URL contiene mode=kiosk, abortamos la inyección del menú completamente
+    // Si la URL contiene mode=kiosk o está en sessionStorage, abortamos la inyección del menú
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('mode') === 'kiosk') {
+    if (urlParams.get('mode') === 'kiosk' || sessionStorage.getItem('stulz_kiosk') === '1') {
         document.body.classList.add('no-sidebar');
         return; // Salir de la función sin inyectar nada
     }

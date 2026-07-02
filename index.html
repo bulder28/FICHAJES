@@ -137,7 +137,16 @@
                 <p>Introduce los datos base del operario para darlo de alta en la base de datos de la planta:</p>
                 
                 <input type="text" id="new-worker-name" placeholder="Nombre y Apellidos..." class="modal-input">
-                <input type="text" id="new-worker-id" placeholder="ID (Ej: 123 o 04123)..." class="modal-input">
+                
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                    <select id="new-worker-prefix" class="modal-input" style="margin-bottom: 0; flex: 1.5;">
+                        <option value="00">Personal de Empresa (00)</option>
+                        <option value="04">Personal ETT (04)</option>
+                        <option value="06">Personal ETT (06)</option>
+                        <option value="08">Escuela PAVONI (08)</option>
+                    </select>
+                    <input type="text" id="new-worker-id" placeholder="Nº (Ej: 123)" class="modal-input" style="margin-bottom: 0; flex: 1;" maxlength="5">
+                </div>
                 
                 <select id="new-worker-turno" class="modal-input">
                     <option value="">Selecciona Turno Base...</option>
@@ -245,8 +254,18 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('view') === 'produccion' || urlParams.get('mode') === 'kiosk') {
+            const isKiosk = urlParams.get('view') === 'produccion' || urlParams.get('mode') === 'kiosk' || sessionStorage.getItem('stulz_kiosk') === '1';
+            const isAdmin = sessionStorage.getItem('stulz_admin') === '1';
+
+            if (isKiosk) {
                 enterProductionMode();
+            } else if (isAdmin) {
+                // Auto-enter admin si recargan la página
+                viewLauncher.style.display = 'none';
+                viewApp.style.display = 'flex';
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    el.style.display = '';
+                });
             }
 
             // Doble confirmación de Nueva Jornada
@@ -260,12 +279,20 @@
         });
 
         function enterProductionMode() {
+            sessionStorage.removeItem('stulz_admin');
+            sessionStorage.setItem('stulz_kiosk', '1');
+            
             viewLauncher.style.opacity = '0';
             setTimeout(() => {
                 viewLauncher.style.display = 'none';
                 viewApp.style.display = 'flex';
                 // Activar Modo Kiosko: Ocultar el menú lateral en la vista de producción
                 document.body.classList.add('no-sidebar');
+                
+                // Asegurar que los botones de admin (Alta Operario) no se vean
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    el.style.display = 'none';
+                });
                 // Mostrar badge de turno
                 const badge = document.getElementById('shift-badge');
                 if (badge) {
@@ -296,9 +323,11 @@
                 viewLauncher.style.opacity = '0';
                 // [FIX BUG-06] Persistir estado admin en sessionStorage para que sobreviva la navegación
                 sessionStorage.setItem('stulz_admin', '1');
+                sessionStorage.removeItem('stulz_kiosk'); // Eliminar modo kiosko
                 setTimeout(() => {
                     viewLauncher.style.display = 'none';
                     viewApp.style.display = 'flex';
+                    document.body.classList.remove('no-sidebar');
                     const url = new URL(window.location);
                     url.searchParams.set('admin', '1');
                     window.history.pushState({}, '', url);

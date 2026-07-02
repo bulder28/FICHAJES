@@ -49,6 +49,7 @@ async function calculateFinancials() {
 
     try {
         const lineaFilter = document.getElementById('filter-linea').value;
+        const ofFilter = document.getElementById('filter-of').value.trim().toUpperCase();
 
         // 1. Obtener TODOS los scores ILUO (sin filtrar por línea: la competencia
         //    de una persona es suya, independientemente de en qué línea se subió el Excel.
@@ -113,6 +114,9 @@ async function calculateFinancials() {
             const horas = parseFloat(data.tiempo) || 0;
 
             if (horas <= 0 || !workerId) return;
+
+            // Filtro por OF (coincidencia parcial)
+            if (ofFilter && !ofNum.includes(ofFilter)) return;
 
             // Nivel del operario en la sección del fichaje.
             // Conservadurismo financiero: sin evaluación en esa sección => Nivel 1 (Muda).

@@ -78,5 +78,16 @@ service cloud.firestore {
       allow write: if true; // Permitir insertar festivos desde auto-importación
       allow delete: if true;
     }
+
+    // REGLAS PARA LA MATRIZ DE POLIVALENCIA
+    match /skill_matrices/{document=**} {
+      allow read, write, delete: if true;
+    }
+    match /skill_scores/{document=**} {
+      allow read, write, delete: if true;
+    }
+    match /operario_photos/{document=**} {
+      allow read, write, delete: if true;
+    }
   }
 }
